@@ -16,11 +16,7 @@ gcc -Wall -o Fitter.so -shared -fPIC -O3 -funroll-loops Fitter.c -lm -lgsl -lgsl
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_multifit_nlinear.h>
-#include <gsl/gsl_linalg.h>
+
 
 //=============Structures==============
 struct Level
@@ -63,14 +59,6 @@ struct Opt_Bundle
 	struct Transition TransitionsGSL[3];
 };
 
-struct GSL_Bundle 
-{
-	const gsl_multifit_nlinear_type *T;
-	gsl_multifit_nlinear_workspace *Workspace;
-	gsl_multifit_nlinear_fdf fdf;
-	gsl_vector_view x;
-	gsl_vector *f;
-};
 
 //=============Function Prototypes==============
 
@@ -100,14 +88,6 @@ int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
 void Calculate_State_Energies (double **/*UpperStateEnergies*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/);
 void Calculate_Intensities (double **/*Intensity*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, double */*Energies*/, double /*T*/, double */*Dipoles*/);
-
-//Triples fitting functions
-int Find_Triples (struct Triple */*TripletoFit*/, double */*LineFrequencies*/, double /*Window*/, int /*LineCount*/);
-double Fit_Lines (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOptBundle*/);
-int OptFunc_gsl (const gsl_vector */*x*/, void */*params*/, gsl_vector */*f*/);
-int Fit_Triples (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/);
-int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle */*MyOpt_Bundle*/);
-void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nlinear_workspace */*w*/);
 
 
 int main (int argc, char *argv[])  
@@ -644,172 +624,6 @@ int i, CatLinesOut;
 	return CatLinesOut;
 }
 
-int Find_Triples (struct Triple *TripletoFit, double *LineFrequencies, double Window, int LineCount)
-{
-int i,Count;	
-	TripletoFit->TriplesList = malloc(LineCount*3*sizeof(double));	//Allocate an array that is 3x the total number of lines we could fit, thats the max, assuming every line is within the search window of all three transitions
-	TripletoFit->TriplesCount[0] = 0;
-	TripletoFit->TriplesCount[1] = 0;
-	TripletoFit->TriplesCount[2] = 0;
-	i=0;
-	Count = 0;
-	while (LineFrequencies[i] < TripletoFit->TransitionList[0].Frequency-Window) {
-		i++;
-	}
-	while ((LineFrequencies[i] < TripletoFit->TransitionList[0].Frequency+Window) & (i<LineCount)) {	//As long as the line is lower than the max frequency of the window and we aren't at the end of the array, add it to the list
-		TripletoFit->TriplesList[Count] = LineFrequencies[i];
-		Count++;
-		i++;
-	}	
-	TripletoFit->TriplesCount[0] = Count;
-	i=0;	//Reset the index above, since we have no way of knowing if these are in order of frequency or if they over lap. This is the safest, but slowest. Sorting could speed this up, but it is more work, something to add later if bigggg files start giving this issues
-	Count = 0;
-	while (LineFrequencies[i] < TripletoFit->TransitionList[1].Frequency-Window) {
-		i++;
-	}
-	while ((LineFrequencies[i] < TripletoFit->TransitionList[1].Frequency+Window) & (i<LineCount)) {
-		TripletoFit->TriplesList[Count+TripletoFit->TriplesCount[0]] = LineFrequencies[i];
-		Count++;
-		i++;
-	}
-	TripletoFit->TriplesCount[1] = Count;
-	i=0;	//Reset the index above again
-	Count = 0;
-	while (LineFrequencies[i] < TripletoFit->TransitionList[2].Frequency-Window) {
-		i++;
-	}
-	while ((LineFrequencies[i] < TripletoFit->TransitionList[2].Frequency+Window) & (i<LineCount)) {
-		TripletoFit->TriplesList[Count+TripletoFit->TriplesCount[0]+TripletoFit->TriplesCount[1]] = LineFrequencies[i];
-		Count++;
-		i++;
-	}
-	TripletoFit->TriplesCount[2] = Count;
-	
-	TripletoFit->TriplesList = realloc(TripletoFit->TriplesList,TripletoFit->TriplesCount[0]*TripletoFit->TriplesCount[1]*TripletoFit->TriplesCount[2]*sizeof(double));	
-	return 1;
-}
-
-double Fit_Lines (double *Guess, int Verbose, struct Opt_Bundle GSLOptBundle)
-{
-//Fit a set of three lines to A/B/C
-//This function is semi-obsolete. Fitting a single set of transitions like this is hugely wasteful as you have to reallocate and free all the variables for each fit. Better to fit a full set of triples, or even to use a single workspace for all fits
-	int info;
-	const gsl_multifit_nlinear_type *T = gsl_multifit_nlinear_trust;
-  	gsl_multifit_nlinear_workspace *Workspace;
-  	gsl_multifit_nlinear_fdf fdf;
-  	gsl_vector_view x;
-  	gsl_multifit_nlinear_parameters fdf_params = gsl_multifit_nlinear_default_parameters();
-  	const size_t n = 3;
-  	const size_t p = 3;
-  	gsl_vector *f;
-  	const double xtol = 1e-8;
-  	const double gtol = 1e-8;
-  	const double ftol = 1e-1;
- 	Workspace = gsl_multifit_nlinear_alloc (T, &fdf_params, n, p);
-  	fdf.f = OptFunc_gsl;
-  	fdf.df = NULL;   	
-  	fdf.fvv = NULL;     
-  	fdf.n = n;
-  	fdf.p = p;
-	fdf.params = &GSLOptBundle;
-	fdf_params.trs = gsl_multifit_nlinear_trs_lm;
-  	x = gsl_vector_view_array (Guess, p);
-   	gsl_multifit_nlinear_init (&x.vector, &fdf, Workspace);     	
-	f = gsl_multifit_nlinear_residual(Workspace);
-  	gsl_multifit_nlinear_driver(20, xtol, gtol, ftol, NULL, NULL, &info, Workspace);
-  	gsl_vector *Final = gsl_multifit_nlinear_position(Workspace);
-  	printf ("%10.4f %10.4f %10.4f\n",gsl_vector_get(Final, 0),gsl_vector_get(Final, 1),gsl_vector_get(Final, 2));
-  	gsl_multifit_nlinear_free (Workspace);
-	return 1.0;
-}
-
-int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, double *ExperimentalLines, int ExperimentalLineCount, struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle)
-{
-int i,j,k,info,Count,Iterations,Wins,Errors;
-const double xtol = 1e-8;
-const double gtol = 1e-8;
-const double ftol = 1e-1;
-const size_t p = 3;
-struct Transition Transitions[3];
-gsl_vector *Final;
-  	FitBundle->x = gsl_vector_view_array (Guess, p);							//Set the guess	
-  	//Extract the transitions we'll use for the fit
-  	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
-  	Transitions[0].Lower = TransitionstoFit.TransitionList[0].Lower;
-  	Transitions[1].Upper = TransitionstoFit.TransitionList[1].Upper;
-  	Transitions[1].Lower = TransitionstoFit.TransitionList[1].Lower;
-	Transitions[2].Upper = TransitionstoFit.TransitionList[2].Upper;
-  	Transitions[2].Lower = TransitionstoFit.TransitionList[2].Lower;  
-  	Wins = 0;		//Track the total number of wins for the current scoring system
-  	Count = 0;		//Track the total number of constants (A+B+C) in the fit results
-  	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
-  	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
-  	double MyConstants[3];
-  	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
-  		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
-  			for (k=0;k<TransitionstoFit.TriplesCount[2];k++) {
-  				//This is why the transitions were extracted. We set the 3 transition's frequencies to those of the triple we're working on and hand it off to the fitter
-  				Transitions[0].Frequency = TransitionstoFit.TriplesList[i];				
-  				Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
-  				Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
-				FitBundle->fdf.params = &Transitions;															//Set the parameters for this run
-   				gsl_multifit_nlinear_init (&(FitBundle->x.vector), &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
-				FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
-  				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 20 iterations
-  				Iterations += gsl_multifit_nlinear_niter (FitBundle->Workspace); 	//Track the iterations
-  				Final = gsl_multifit_nlinear_position(FitBundle->Workspace);		//Snag the results
-  				if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 50) {		//Check for an error, currently only considering non-convergence
-  					printf ("Error: Unconverged Fit: %.4f %.4f %.4f\n",Transitions[0].Frequency,Transitions[1].Frequency,Transitions[2].Frequency);
-  					Errors++;
-  				}
-   				(*FitResults)[Count] = gsl_vector_get(Final, 0);	//Get the final A
-  				MyConstants[0] = (*FitResults)[Count];				//Update the constants
-  				Count++;											//Track the number of items in FitResults
-  				(*FitResults)[Count] = gsl_vector_get(Final, 1);	
-  				MyConstants[1] = (*FitResults)[Count];
-  				Count++;
-  				(*FitResults)[Count] = gsl_vector_get(Final, 2);
-  				MyConstants[2] = (*FitResults)[Count];
-  				Count++;
-  				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle->ETGSL,MyOpt_Bundle->MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
-  				Sort_Catalog (*MyFittingCatalog,CatalogLines,0);					//Catalog is not necessarily sorted, so we sort it
-				//Score fits here
-  			} 
-  		} 
-  	}
-	printf ("%d\n",Wins);
-  	printf ("%e %e %e\n",MyConstants[0],MyConstants[1],MyConstants[2]);
-  	printf ("%i average iterations, %i Errors\n",Iterations/(TransitionstoFit.TriplesCount[0]*TransitionstoFit.TriplesCount[1]*TransitionstoFit.TriplesCount[2]),Errors);
-	return 1;
-}
-
-int OptFunc_gsl (const gsl_vector *x, void *params, gsl_vector *f)
-{
-double GSLConstants[3];	//Declare some doubles to hold our constants
-	//I dont love doing this, but GSL really only wants one pointer to void for the function parameters. So this is a struct to hold all the things we need for calculating frequencies
-	struct Opt_Bundle *p = (struct Opt_Bundle *) params;
-	GSLConstants[0] = gsl_vector_get(x, 0);	//Pull these values from the vector
-	GSLConstants[1] = gsl_vector_get(x, 1);
-	GSLConstants[2] = gsl_vector_get(x, 2);
-	gsl_vector_set (f, 0, Get_Frequency(p->MyDictionary[p->TransitionsGSL[0].Upper].J,
-										p->MyDictionary[p->TransitionsGSL[0].Lower].J,
-										p->TransitionsGSL[0].Upper,
-										p->TransitionsGSL[0].Lower,
-										GSLConstants,p->ETGSL) - p->TransitionsGSL[0].Frequency);
-	
-	gsl_vector_set (f, 1, Get_Frequency(p->MyDictionary[p->TransitionsGSL[1].Upper].J,
-										p->MyDictionary[p->TransitionsGSL[1].Lower].J,
-										p->TransitionsGSL[1].Upper,
-										p->TransitionsGSL[1].Lower,
-										GSLConstants,p->ETGSL) - p->TransitionsGSL[1].Frequency);
-	gsl_vector_set (f, 2, Get_Frequency(p->MyDictionary[p->TransitionsGSL[2].Upper].J,
-										p->MyDictionary[p->TransitionsGSL[2].Lower].J,
-										p->TransitionsGSL[2].Upper,
-										p->TransitionsGSL[2].Lower,
-										GSLConstants,p->ETGSL) - p->TransitionsGSL[2].Frequency);
-	return GSL_SUCCESS;
-}
-
 int Peak_Find (double **LineList, double Max, double Min, double *X, double *Y, int ArraySize)
 {
 //Pretty standard implementation of a peakfinding algorithm
@@ -827,15 +641,6 @@ int i,PeakCount;
 	}	
 	*LineList = realloc(*LineList,i*sizeof(double));	
 	return PeakCount;
-}
-
-void callback (const size_t iter, void *params, const gsl_multifit_nlinear_workspace *w)
-{
-gsl_vector *f = gsl_multifit_nlinear_residual(w);
-gsl_vector *x = gsl_multifit_nlinear_position(w);
-double rcond;
-	gsl_multifit_nlinear_rcond(&rcond, w);
-	fprintf (stderr, "iter %2zu: A = %.4f, B = %.4f, C = %.4f, cond(J) = %8.4f, |f(x)| = %.4f\n", iter, gsl_vector_get(x, 0), gsl_vector_get(x, 1), gsl_vector_get(x, 2), 1.0 / rcond, gsl_blas_dnrm2(f));
 }
 
 void Calculate_State_Energies (double **Energies, struct Transition *SourceCatalog, int CatalogTransitions)
