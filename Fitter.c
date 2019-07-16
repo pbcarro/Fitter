@@ -274,19 +274,19 @@ int Initialize_Stuff (double **ETArray, int *CatTransitions, int *DictLevels, do
 int TempPoints;
 	TempPoints = 0;
 	srand(time(NULL));								//Initializing the time calls elsewhere	
-	*DictLevels = Load_Base_Catalog_Dictionary (	"Base Catalog Dictionary1.txt", 
+	*DictLevels = Load_Base_Catalog_Dictionary (	"base_cat_dict.txt", 
 													DictionaryIn,//&BaseDict, 
 													0 //Verbose
 	);	
 	printf ("Dictionary Loaded\n");
-	*CatTransitions = Load_Base_Catalog (	"Base Catalog.txt",
+	*CatTransitions = Load_Base_Catalog (	"base_cat.txt",
 											CatalogIn, 		//List of transitions in the lower state
 											0				//Verbose
 	);	
 	printf ("Catalog Loaded\n");
 
 	//Load all of our ET values into the array and check that it worked, using static external files cause I'm lazy
-	if (Load_ETau_File ("J0_25_dk2.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
+	if (Load_ETau_File ("etau.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
 	else goto Error;
 	if (*DictLevels != TempPoints) {
 		printf ("Warning: mismatch between number of dictionary states(%d) and number of states in the eigenvalue file (%d)\n",*DictLevels,TempPoints);
