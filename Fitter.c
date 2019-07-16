@@ -77,6 +77,7 @@ struct GSL_Bundle
 //Program setup functions
 int Initialize_Stuff (double **/*ETArray*/, int */*CatTransitions*/, int */*DictTransitions*/, double */*FileDelta*/, int */*StatePoints*/, struct Level **/*DictionaryIn*/, struct Transition **/*CatalogIn*/);
 int Load_ETau_File (char */*FileName*/, double **/*X*/, double */*FileDelta*/, int */*StatePoints*/, int */*StateCount*/);
+int Load_ETau_File2 (char */*FileName*/, struct ETauStruct */*StructToLoad*/, int */*StateCount*/);
 int Load_Base_Catalog (char */*FileName*/, struct Transition **/*BaseCatalog*/,  int /*Verbose*/);
 int Load_Base_Catalog_Dictionary (char */*FileName*/, struct Level **/*DictIn*/,  int /*Verbose*/);
 int Load_Exp_File  (char */*FileName*/, double **/*X*/, double **/*Y*/, int /*Verbose*/);
@@ -125,6 +126,9 @@ double *EnergyLevels,*IntensityVals;
 	if (!Initialize_Stuff(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog)) {
 		goto Error;
 	}
+	
+	int TempInt;
+	Load_ETau_File2 ("J0_25_dk2.dat", &ETStruct, &TempInt);
 	
 	/*
 	FILE *FileHandle;	
@@ -325,6 +329,44 @@ size_t len = 0;
 	*X = realloc(*X,i*sizeof(double));
 	*StatePoints = (int) i/(*StateCount);
 	*FileDelta = 2.0/(*StatePoints-1);
+	return i;
+Error:
+	printf ("Error Loading file %s\n",FileName);
+	return 0;
+}
+
+int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *StateCount) 
+{
+//This loads the E_Tau file in by reading a single value from the file until there are no more values found in the file
+//This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
+//Figuring out where each state starts and stops is done elsewhere, so the global variables need to be set properly to deal with this
+//ET is preallocated based on the global variables, there are no checks to see if the file matches until later
+int i,StateLimit;
+FILE *FileHandle;
+char * line = NULL;
+size_t len = 0;
+	
+	StateLimit = 10000;
+	FileHandle = NULL;
+	FileHandle = fopen (FileName, "r");									//Open file read only
+	if (FileHandle == NULL) goto Error;	
+	*StateCount = 0;
+	while (getline(&line, &len, FileHandle) > 0) (*StateCount)++;
+	rewind(FileHandle);
+	(*StructToLoad).ETVals = malloc(StateLimit*(*StateCount)*sizeof(double));																
+	if ((*StructToLoad).ETVals == NULL) goto Error;
+	i = 0;
+	while (fscanf (FileHandle, "%lf", &((*StructToLoad).ETVals[i])) == 1) {					//Keep scanning in floating points until there are no more
+		i++;
+		if (i == (StateLimit*(*StateCount))) {
+			printf ("Error: Your state file exceeds J=100, I don' want to deal with that\n");
+			goto Error;
+		}
+	}
+	fclose (FileHandle);												//Not currently checking to see if fclose works, shouldnt affect file load and theres not much to be done if there is an error, the file stream should close when the program ends so hopefully this wont mater														//i is incremented at the end when the EOF occurs which doesnt represent real data so it gets fixed 								
+	(*StructToLoad).ETVals = realloc((*StructToLoad).ETVals,i*sizeof(double));
+	(*StructToLoad).StatePoints = (int) i/(*StateCount);
+	(*StructToLoad).Delta = 2.0/((*StructToLoad).StatePoints-1);
 	return i;
 Error:
 	printf ("Error Loading file %s\n",FileName);
