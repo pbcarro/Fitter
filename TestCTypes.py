@@ -36,15 +36,15 @@ class Triple(Structure):
 
 ###Code starts here
 FitterLib=CDLL("Fitter.so")	#Pull in the fitter library
-Load_ETau_File = FitterLib.Load_ETau_File	#Pull the ET File loader for a test
-#Load_ETau_File2 = FitterLib.Load_ETau_File2
+#Load_ETau_File = FitterLib.Load_ETau_File	#Pull the ET File loader for a test
+Load_ETau_File2 = FitterLib.Load_ETau_File2
 Load_Base_Catalog_Dictionary = FitterLib.Load_Base_Catalog_Dictionary
 Load_Base_Catalog = FitterLib.Load_Base_Catalog
 Get_Catalog = FitterLib.Get_Catalog
 
-ETFileName = create_string_buffer(b"J0_25_dk2.dat")
-DictionaryFileName = create_string_buffer(b"Base Catalog Dictionary1.txt")
-CatalogFileName = create_string_buffer(b"Base Catalog.txt")
+ETFileName = create_string_buffer(b"etau.dat")
+DictionaryFileName = create_string_buffer(b"base_cat_dict.txt")
+CatalogFileName = create_string_buffer(b"base_cat.txt")
 
 ETARRAY = POINTER(c_double)()
 FILEDELTA = c_double(0)
@@ -59,7 +59,7 @@ ConstantsType = c_double*10
 
 MyLevels = POINTER(Level)()
 MyCatalog = POINTER(Transition)()
-MyET = POINTER(ETauStruct)()
+MyET = ETauStruct()
 
 
 print ("Verbose: %d" % Verbose.value)
@@ -76,13 +76,18 @@ Load_Base_Catalog_Dictionary (	DictionaryFileName,
 								Verbose
 )
 
-# Load_ETau_File2 (ETFileName,
-# 				byref(MyET),
-# 				byref(ETSTATECOUNT)
-# )
+print("Going ETau2")
+
+Load_ETau_File2 (ETFileName,
+ 				byref(MyET),
+ 				byref(ETSTATECOUNT)
+)
+
+print("Making Constants")
 
 Constants = ConstantsType (3000.0,2000.0,1000.0)
 
+print("Getting catalog")
 
 Get_Catalog (	MyCatalog, 		
 				Constants, 			
@@ -91,6 +96,9 @@ Get_Catalog (	MyCatalog,
 				MyET,
 				MyLevels
 )
+
+for transition in MyCatalog:
+	print(transition.Frequency)
 
 #int Load_ETau_File (char */*FileName*/, double **/*X*/, double */*FileDelta*/, int */*StatePoints*/, int */*StateCount*/);
 
