@@ -10,14 +10,12 @@ JStop = 25		#Ending J
 delta = 1.0E-3	#Resolution of the eigenvalue file
 Delta = np.arange(-1.0,1.0+delta,delta)	
 StateCount = 0
-for i in range(JStart,JStop):	#Count up how many states there are in total
 	StateCount += i*2+1
 
 DatTable = np.zeros((StateCount,len(Delta)))	#Build a matrix to hold all the data
 Count = 0
 total = 0
 
-for i in range(JStart,JStop):		#As with the other programs this is to get the last J value instead of JStop-1
 	CurrentState = np.loadtxt("EigenVals/%d_dk_3.dat" % i)
 	if (i == 0):		#The J=0 eigenvalue table is a 1D array, not 2D, so it needs slightly different code
 		DatTable[Count] = CurrentState
