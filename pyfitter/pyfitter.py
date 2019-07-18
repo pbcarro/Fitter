@@ -1,8 +1,10 @@
+
 import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from ctypes import c_uint, c_int, c_double, create_string_buffer, CDLL, POINTER, byref, Structure
+
 
 ###Structure definition for python
 class Level(Structure):
@@ -62,10 +64,11 @@ class AsymmetricMolecule:
         self.constants = [10000., 5000., 3000.]
         self.verbose = False
         # These are static paths that a user can overwrite
-        self.lib_path = "Fitter.so"
-        self.et_path = "etau.dat"
-        self.cat_dict_path = "base_cat_dict.txt"
-        self.cat_path = "base_cat.txt"
+        module_path = Path(__file__).parent
+        self.lib_path = module_path.joinpath("Fitter.so")
+        self.et_path = module_path.joinpath("etau.dat")
+        self.cat_dict_path = module_path.joinpath("base_cat_dict.txt")
+        self.cat_path = module_path.joinpath("base_cat.txt")
 
         # Update the parameters with user defined settings
         self.__dict__.update(**kwargs)
@@ -88,7 +91,7 @@ class AsymmetricMolecule:
             check_path = Path(path)
             if not check_path.exists():
                 raise Exception(f"{path} table not found!")
-            self.string_buffers[name] = create_string_buffer(bytes(path, "utf-8"))
+            self.string_buffers[name] = create_string_buffer(bytes(check_path))
         # Load the base catalog dictionary
         self.FitterLib.Load_Base_Catalog_Dictionary(
             self.string_buffers["catdict"],
@@ -115,8 +118,7 @@ class AsymmetricMolecule:
         is more verbose, but it is intended to give useful errors when the
         library is not found/missing.
         """
-        path = Path(self.lib_path)
-        if not path.exists():
+        if not self.lib_path.exists():
             raise Exception("Fitter static library not found; is it compiled?")
         else:
             # Load the statically compiled library

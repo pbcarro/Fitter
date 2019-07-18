@@ -1,0 +1,4 @@
+include pyfitter/*.so
+include pyfitter/etau.dat
+include pyfitter/base_cat_dict.txt
+include pyfitter/base_cat.txt

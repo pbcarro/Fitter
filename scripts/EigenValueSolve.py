@@ -27,7 +27,7 @@ def EKK2(J,K,kappa):
 
 
 
-delta = 1.0E-2									#The resolution/step size of kappa used to solve the eigenvalue equation
+delta = 1.0E-3									#The resolution/step size of kappa used to solve the eigenvalue equation
 Delta = np.arange(-1.0,1.0+delta,delta)			#Build an array of the kappa values from -1 to 1
 JMax = 25										#Max j value to be solved
 JRange = range(JMax+1)							#Array of the J values, the +1 is to account for the 0 indexing so this solves to JMax and not JMax-1
@@ -53,6 +53,6 @@ for TargetJ	in JRange:							#Iterate through values of J
 		for j in range(len(Delta)):
 			FileStr += "%.16f\t" % E_tau[i][j]	#Currently saving way more precision than is needed, but it also costs basically nothing
 		FileStr += "\n"
-	FileHandle = open ("EigenVals/%d_dk_2.dat" % (TargetJ),'w')	#Change file name as needed
+	FileHandle = open ("EigenVals/%d_dk_3.dat" % (TargetJ),'w')	#Change file name as needed
 	FileHandle.write(FileStr)
 	FileHandle.close()

@@ -1,3 +1,8 @@
 *.so
 Go
 __pycache__
+
+\.DS_Store
+/Users/kelvin/Documents/Python/Fitter/tests/vs_spcat/spcat/*.json
+/Users/kelvin/Documents/Python/Fitter/tests/vs_spcat/spcat/*.cat
+/Users/kelvin/Documents/Python/Fitter/tests/vs_spcat/brandon/*
