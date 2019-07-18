@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+
 '''
 Python numpy program to solve the rigid rotor asymmetric top eigenvalue problem
 
@@ -6,6 +9,8 @@ Todo:
 
 '''
 
+import os
+import json
 import numpy as np
 from numpy import linalg as LA
 
@@ -25,11 +30,15 @@ def EKK2(J,K,kappa):
 	return H(kappa)*np.sqrt(f1(J,K))			#Equation 7.12 G&C
 
 
+if os.path.exists("EigenVals") is False:
+	os.mkdir("EigenVals")
 
+with open("parameters.json") as read_file:
+	params = json.load(read_file)
 
-delta = 1.0E-3									#The resolution/step size of kappa used to solve the eigenvalue equation
-Delta = np.arange(-1.0,1.0+delta,delta)			#Build an array of the kappa values from -1 to 1
-JMax = 25										#Max j value to be solved
+delta = params["delta"]                         #The resolution/step size of kappa used to solve the eigenvalue equation
+JMax = params["JMax"]                           #Max j value to be solved					
+Delta = np.arange(-1.0,1.0+delta,delta)			#Build an array of the kappa values from -1 to 1							
 JRange = range(JMax+1)							#Array of the J values, the +1 is to account for the 0 indexing so this solves to JMax and not JMax-1
 for TargetJ	in JRange:							#Iterate through values of J
 	MatSize = 2*TargetJ+1						#Each J has 2J+1 eigenvalues

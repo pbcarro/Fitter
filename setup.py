@@ -37,7 +37,6 @@ setup(
         "numpy",
         "pandas",
     ],
+    scripts=["scripts/DatFileBuilder.py", "scripts/EigenValueSolve.py"],
     cmdclass={"install": InstallClass}
 )
-
-

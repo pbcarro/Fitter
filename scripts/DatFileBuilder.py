@@ -1,13 +1,23 @@
+#!/usr/bin/env python
+
 '''
 Program for merging individual eigenvalue files into a full file
 -Currently it's own program so I can build catalogs only as large as I want to
 '''
 
+import os
+import json
 import numpy as np
 
+if os.path.exists("EigenVals") is False:
+	os.mkdir("EigenVals")
+
+with open("parameters.json") as read_file:
+	params = json.load(read_file)
+
+delta = params["delta"]                         #The resolution/step size of kappa used to solve the eigenvalue equation
+JStop = params["JMax"]                           #Max j value to be solved			
 JStart = 0		#Starting J
-JStop = 25		#Ending J
-delta = 1.0E-3	#Resolution of the eigenvalue file
 Delta = np.arange(-1.0,1.0+delta,delta)	
 StateCount = 0
 for i in range(JStart,JStop+1):	#Count up how many states there are in total

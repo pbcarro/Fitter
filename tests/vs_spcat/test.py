@@ -10,8 +10,10 @@ from pathlib import Path
 
 def main():
     session = AsymmetricMolecule(
-            **{"et_path": "/Users/kelvin/Documents/Python/Fitter/scripts/J0_25_dk2.dat"}
+            **{"et_path": "/Users/kelvin/Documents/Python/Fitter/scripts/J0_25_dk3.dat"}
         )
+    errors = list()
+    counter = 0
     for path in Path().rglob("./spcat/S*.json"):
         data = json.loads(path.read_text())
         constants = [data["A"], data["B"], data["C"]]
@@ -26,8 +28,14 @@ def main():
             thres=1e-4,
             ntests=50
             )
+        errors.append(error)
+        counter += 1
         print(f"Largest error for set: {error:.4f}")
         print(f"{worst_trans}")
+    avg_error = np.average(error)
+    std_error = np.std(error)
+    print(f"Aggregate error for {counter} tests")
+    print(f"{avg_error:.6f} +/- {std_error:.6f} MHz")
 
 
 def read_spcat(filepath):

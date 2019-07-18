@@ -8,3 +8,5 @@ tests/vs_spcat/brandon/*
 
 tests/vs_spcat/spcat/*.json
 tests/vs_spcat/spcat/*.cat
+
+scripts/EigenVals
