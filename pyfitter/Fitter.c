@@ -68,7 +68,6 @@ struct GSL_Bundle
 	const gsl_multifit_nlinear_type *T;
 	gsl_multifit_nlinear_workspace *Workspace;
 	gsl_multifit_nlinear_fdf fdf;
-	gsl_vector_view x;
 	gsl_vector *f;
 };
 
@@ -841,6 +840,7 @@ const double ftol = 1e-1;
 const size_t p = 3;
 struct Transition Transitions[3];
 gsl_vector *Final;
+gsl_vector_view x;
   	FitBundle->x = gsl_vector_view_array (Guess, p);							//Set the guess	
   	//Extract the transitions we'll use for the fit
   	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
@@ -950,7 +950,6 @@ double rcond;
 void Calculate_State_Energies (double **Energies, struct Transition *SourceCatalog, int CatalogTransitions)
 {
 //Function to get the energies of levels in a catalog
-//
 int i;
 	(*Energies)[0] = 0.0;
 	for (i=0;i<CatalogTransitions;i++) {
