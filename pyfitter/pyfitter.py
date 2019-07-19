@@ -12,7 +12,8 @@ class Level(Structure):
         ("Index", c_uint),
         ("J", c_uint),
         ("Ka", c_uint),
-        ("Kc", c_uint)
+        ("Kc", c_uint),
+        ("Energy",c_double)
         ]
 
 class Transition(Structure):
@@ -20,7 +21,8 @@ class Transition(Structure):
         ("Frequency", c_double),
         ("Upper", c_uint),
         ("Lower", c_uint),
-        ("Type", c_uint)
+        ("Type", c_uint),
+        ("Intensity",c_double)
         ]
 
 class ETauStruct(Structure):
