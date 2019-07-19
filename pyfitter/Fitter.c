@@ -110,6 +110,8 @@ int Fit_Triples (struct Triple /*TransitionstoFit*/, double */*Guess*/, double *
 int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle */*MyOpt_Bundle*/);
 void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nlinear_workspace */*w*/);
 
+//New Functions
+int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
 
 int main (int argc, char *argv[])  
 {
@@ -127,9 +129,8 @@ double *EnergyLevels,*IntensityVals;
 		goto Error;
 	}
 	
-	int TempInt;
-	Load_ETau_File2 ("J0_25_dk2.dat", &ETStruct, &TempInt);
-	
+	//Load_ETau_File2 ("J0_25_dk2.dat", &ETStruct, &TempInt);
+	//Load_ETau_File2 ("J0_25_dk3.dat", &ETStruct, &TempInt);
 	/*
 	FILE *FileHandle;	
 	
@@ -286,7 +287,7 @@ int TempPoints;
 	printf ("Catalog Loaded\n");
 
 	//Load all of our ET values into the array and check that it worked, using static external files cause I'm lazy
-	if (Load_ETau_File ("etau.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
+	if (Load_ETau_File ("J0_25_dk3.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
 	else goto Error;
 	if (*DictLevels != TempPoints) {
 		printf ("Warning: mismatch between number of dictionary states(%d) and number of states in the eigenvalue file (%d)\n",*DictLevels,TempPoints);
@@ -902,6 +903,72 @@ int i;
 	}
 }
 
+int Search_DR_Hits (int DRPairs, double ConstStart, double ConstStop, double Step, double *DRFrequency, double Tolerance, int ExtraLineCount, double *ExtraLines, int **DRLinks, int LinkCount, struct Transition *CatalogtoFill, double *Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
+{
+double CurrentA,CurrentB,CurrentC,Count;
+int *Match,i,j,DRMatch,AllLinks,Wins;	
+
+	Match = malloc(DRPairs*sizeof(int));
+	if (Match == NULL) goto Error;
+	CurrentA = ConstStart;
+	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
+	while (CurrentA < ConstStop) {
+		CurrentB = ConstStart;
+		while (CurrentB < ConstStop) {
+			CurrentC = ConstStart;
+			while (CurrentC < ConstStop) {
+				if ((CurrentA > CurrentB) && (CurrentB > CurrentC)) {
+					Count+= 1.0;
+					Constants[0] = CurrentA;
+					Constants[1] = CurrentB;
+					Constants[2] = CurrentC;
+					//Predict and check spectrum
+					Get_Catalog (	CatalogtoFill, 		//Catalog to compute frequencies for
+									Constants, 			//Rotational constants for the calculation
+									CatLines,	//# of transitions in the catalog
+									0,					//Verbose
+									ETStruct,
+									MyDictionary
+					);
+					//printf ("%f %f %f\n",CurrentA,CurrentB,CurrentC);
+					Wins = 0;
+					for (i=0;i<DRPairs;i++) Match[i] = -1;		//Reset our matches to 0
+					for (i=0;i<CatLines;i++) {
+						for (j=0;j<DRPairs;j++) {
+							if (fabs(CatalogtoFill[i].Frequency-DRFrequency[j]) < Tolerance) {
+								Match[j] = i;
+								Wins++;
+							}
+						}
+						for (j=0;j<ExtraLineCount;j++) if (fabs(CatalogtoFill[i].Frequency-ExtraLines[j]) < Tolerance) Wins++;	
+					}
+					for (i=0;i<DRPairs;i++) if (Match[i] < 0) DRMatch = 0;	//If any of our transitions werent matched we bail 
+					DRMatch = 1;
+					AllLinks = 1;
+					if (DRMatch) { 
+						for (i=0;i<LinkCount;i++) {
+							if (!((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper)) {	
+									AllLinks = 0;	
+							}	
+						}
+						if (AllLinks) {
+								//Do something cause at this point we have correctly matched the DR conditions
+						}
+					}					
+				}
+				CurrentC += Step;
+			}
+			CurrentB += Step;
+		}
+		CurrentA += Step;
+	}
+	printf ("%e individual fits performed",Count);
+	free(Match);
+	return 1;
+Error:
+	printf("Error running matching program");
+	return 0;
+}
 
 
 
