@@ -93,7 +93,9 @@ int Get_Catalog (struct Transition */*CatalogtoFill*/, double */*Constants*/, in
 
 //General catalog functions
 void print_Transition (struct Transition /*TransitionToPrint*/, struct Level */*MyDictionary*/);
-int Fill_Catalog_Restricted (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*FrequencyLow*/, double /*FrequencyHigh*/, int */*Dipoles*/, int /*Verbose*/, struct Level */*MyDictionary*/);
+int Fill_Catalog_Restricted_Frequency (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*FrequencyLow*/, double /*FrequencyHigh*/, int /*Verbose*/, struct Level */*MyDictionary*/);
+int Fill_Catalog_Restricted_J (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*JMin*/, int /*JMax*/, int /*Verbose*/, struct Level */*MyDictionary*/);
+int Fill_Catalog_Restricted_Intensity (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*Percentile*/, int /*Verbose*/, struct Level */*MyDictionary*/);
 void Sort_Catalog (struct Transition */*Catalog*/, int /*TransitionCount*/, int /*SortMethod*/, int /*SortType*/);
 int Catalog_Comparator_Frequency (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Intensity (const void */*a*/, const void */*b*/);
@@ -696,22 +698,59 @@ int i, j;
     } 
 } 
 
-int Fill_Catalog_Restricted (struct Transition *SourceCatalog, struct Transition **CatalogtoFill, double *Constants, int CatLines, double FrequencyLow, double FrequencyHigh, int *Dipoles, int Verbose, struct Level *MyDictionary)
+int Fill_Catalog_Restricted_Frequency (struct Transition *SourceCatalog, struct Transition **CatalogtoFill, double *Constants, int CatLines, double FrequencyLow, double FrequencyHigh, int Verbose, struct Level *MyDictionary)
 {
 int i, CatLinesOut;     
 	*CatalogtoFill = malloc(CatLines*sizeof(struct Transition));
 	CatLinesOut = 0; 
 	for (i=0;i<CatLines;i++) {
-		if (((SourceCatalog)[i].Frequency > FrequencyLow) && ((SourceCatalog)[i].Frequency < FrequencyHigh) &&  ((Dipoles[(SourceCatalog)[i].Type-1] == 1))) {
+		if (((SourceCatalog)[i].Frequency > FrequencyLow) && ((SourceCatalog)[i].Frequency < FrequencyHigh)) {
+			(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i]; 	//Fairly certain this is a value copy not an address copy
+			if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
+			if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
+			CatLinesOut++;
+		}
+     } 
+	*CatalogtoFill = realloc (*CatalogtoFill,CatLinesOut*sizeof(struct Transition));   
+	return CatLinesOut;
+}
+
+int Fill_Catalog_Restricted_J (struct Transition *SourceCatalog, struct Transition **CatalogtoFill, double *Constants, int CatLines, int JMin, int JMax, int Verbose, struct Level *MyDictionary)
+{
+int i, CatLinesOut;     
+	*CatalogtoFill = malloc(CatLines*sizeof(struct Transition));
+	CatLinesOut = 0; 
+	for (i=0;i<CatLines;i++) {
+		
+		if ((MyDictionary[(SourceCatalog)[i].Upper].J > JMin) && (MyDictionary[(SourceCatalog)[i].Upper].J < JMax)) {
 			(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i];
 			if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
 			if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
 			CatLinesOut++;
 		}
      } 
-
 	*CatalogtoFill = realloc (*CatalogtoFill,CatLinesOut*sizeof(struct Transition));   
 	return CatLinesOut;
+}
+
+int Fill_Catalog_Restricted_Intensity (struct Transition *SourceCatalog, struct Transition **CatalogtoFill, double *Constants, int CatLines, double Percentile, int Verbose, struct Level *MyDictionary)
+{
+int i, CatLinesOut;     
+	if (Percentile > 1.0) {
+		printf ("Error: you need to specify a value between 0 and 1 for catalog intensity trimming");
+		goto Error;
+	}
+	CatLinesOut = (int) CatLines*Percentile; 
+	*CatalogtoFill = malloc(CatLinesOut*sizeof(struct Transition));
+	Sort_Catalog (SourceCatalog, CatLines, 1, 1); 
+	for (i=0;i<CatLinesOut;i++) {
+		(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i];
+		if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
+		if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
+     } 
+	return CatLinesOut;
+Error:
+	return -1;
 }
 
 int Find_Triples (struct Triple *TripletoFit, double *LineFrequencies, double Window, int LineCount)
