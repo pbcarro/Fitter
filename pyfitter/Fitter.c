@@ -29,7 +29,7 @@ struct Level
 	unsigned int J;
 	unsigned int Ka;
 	unsigned int Kc;
-	//double Energy;
+	double Energy;
 };
 
 struct Transition 
@@ -38,7 +38,7 @@ struct Transition
 	unsigned int Upper;
 	unsigned int Lower;
 	unsigned int Type;
-	//double Intensity;
+	double Intensity;
 }; 
 
 struct ETauStruct 
