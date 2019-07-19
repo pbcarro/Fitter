@@ -71,6 +71,8 @@ struct GSL_Bundle
 	gsl_vector *f;
 };
 
+typedef double (*ScoreFunction)(struct Transition *, void *);
+
 //=============Function Prototypes==============
 
 //Program setup functions
@@ -109,7 +111,7 @@ int Find_Triples (struct Triple */*TripletoFit*/, double */*LineFrequencies*/, d
 double Fit_Lines (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOptBundle*/);
 int OptFunc_gsl (const gsl_vector */*x*/, void */*params*/, gsl_vector */*f*/);
 int Fit_Triples (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/);
-int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle */*MyOpt_Bundle*/);
+int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle */*MyOpt_Bundle*/, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
 void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nlinear_workspace */*w*/);
 
 //New Functions
@@ -831,7 +833,7 @@ double Fit_Lines (double *Guess, int Verbose, struct Opt_Bundle GSLOptBundle)
 	return 1.0;
 }
 
-int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, double *ExperimentalLines, int ExperimentalLineCount, struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle)
+int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, double *ExperimentalLines, int ExperimentalLineCount, struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
 {
 int i,j,k,info,Count,Iterations,Wins,Errors;
 const double xtol = 1e-8;
@@ -841,7 +843,7 @@ const size_t p = 3;
 struct Transition Transitions[3];
 gsl_vector *Final;
 gsl_vector_view x;
-  	FitBundle->x = gsl_vector_view_array (Guess, p);							//Set the guess	
+  	x = gsl_vector_view_array (Guess, p);							//Set the guess	
   	//Extract the transitions we'll use for the fit
   	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
   	Transitions[0].Lower = TransitionstoFit.TransitionList[0].Lower;
@@ -862,7 +864,7 @@ gsl_vector_view x;
   				Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
   				Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
 				FitBundle->fdf.params = &Transitions;															//Set the parameters for this run
-   				gsl_multifit_nlinear_init (&(FitBundle->x.vector), &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
+   				gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
 				FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
   				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 20 iterations
   				Iterations += gsl_multifit_nlinear_niter (FitBundle->Workspace); 	//Track the iterations
@@ -882,7 +884,7 @@ gsl_vector_view x;
   				Count++;
   				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle->ETGSL,MyOpt_Bundle->MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
   				Sort_Catalog (*MyFittingCatalog,CatalogLines,0,0);					//Catalog is not necessarily sorted, so we sort it
-				//Score fits here
+				TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
   			} 
   		} 
   	}
