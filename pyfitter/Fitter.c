@@ -94,8 +94,9 @@ int Get_Catalog (struct Transition */*CatalogtoFill*/, double */*Constants*/, in
 //General catalog functions
 void print_Transition (struct Transition /*TransitionToPrint*/, struct Level */*MyDictionary*/);
 int Fill_Catalog_Restricted (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*FrequencyLow*/, double /*FrequencyHigh*/, int */*Dipoles*/, int /*Verbose*/, struct Level */*MyDictionary*/);
-void Sort_Catalog (struct Transition */*Catalog*/, int /*TransitionCount*/, int /*SortMethod*/);
-int Catalog_Comparator (const void */*a*/, const void */*b*/);
+void Sort_Catalog (struct Transition */*Catalog*/, int /*TransitionCount*/, int /*SortMethod*/, int /*SortType*/);
+int Catalog_Comparator_Frequency (const void */*a*/, const void */*b*/);
+int Catalog_Comparator_Intensity (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Upper (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
@@ -244,7 +245,7 @@ double *EnergyLevels,*IntensityVals;
 							ETStruct,
 							BaseDict
 			);
-			Sort_Catalog (BaseCatalog,CatalogTransitions,2);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
 		}
 		clock_t end = clock();
 		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
@@ -606,9 +607,25 @@ void print_Transition (struct Transition TransitionToPrint, struct Level *MyDict
 	printf ("%.3f %i %i %i -- %i %i %i\n",TransitionToPrint.Frequency, MyDictionary[TransitionToPrint.Upper].J,MyDictionary[TransitionToPrint.Upper].Ka,MyDictionary[TransitionToPrint.Upper].Kc,MyDictionary[TransitionToPrint.Lower].J,MyDictionary[TransitionToPrint.Lower].Ka,MyDictionary[TransitionToPrint.Lower].Kc);
 }
 
-void Sort_Catalog (struct Transition *CatalogtoSort, int TransitionCount, int SortMethod) 
+void Sort_Catalog (struct Transition *CatalogtoSort, int TransitionCount, int SortMethod, int SortType) 
 {
 //Wrapper function for sorting a catalog
+	int (*Catalog_Comparator)(const void *,const void *);
+	switch (SortType) {
+		case 0:
+			Catalog_Comparator = &Catalog_Comparator_Frequency;
+		case 1:
+			Catalog_Comparator = &Catalog_Comparator_Intensity;	
+			SortMethod = 1;
+		case 2:
+			Catalog_Comparator = &Catalog_Comparator_Index_Upper;
+			SortMethod = 1;	
+		case 3:
+			Catalog_Comparator = &Catalog_Comparator_Index_Lower;
+			SortMethod = 1;
+		default:
+			Catalog_Comparator = &Catalog_Comparator_Frequency;	
+	}
 	switch (SortMethod) {
 		case 1:
 			//Quick Sort - Fast for general sorting
@@ -623,13 +640,23 @@ void Sort_Catalog (struct Transition *CatalogtoSort, int TransitionCount, int So
 	}
 }
 
-int Catalog_Comparator (const void *a, const void *b) 
+int Catalog_Comparator_Frequency (const void *a, const void *b) 
 {
 //Comparison function for qsort sorting of the catalog
 	struct Transition A = *(struct Transition *) a;
 	struct Transition B = *(struct Transition *) b;
 	if (A.Frequency > B.Frequency) return 1;
 	else if (A.Frequency < B.Frequency) return -1;
+	else return 0;
+}
+
+int Catalog_Comparator_Intensity (const void *a, const void *b) 
+{
+//Comparison function for qsort sorting of the catalog
+	struct Transition A = *(struct Transition *) a;
+	struct Transition B = *(struct Transition *) b;
+	if (A.Intensity > B.Intensity) return 1;
+	else if (A.Intensity < B.Intensity) return -1;
 	else return 0;
 }
 
@@ -815,7 +842,7 @@ gsl_vector *Final;
   				MyConstants[2] = (*FitResults)[Count];
   				Count++;
   				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle->ETGSL,MyOpt_Bundle->MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
-  				Sort_Catalog (*MyFittingCatalog,CatalogLines,0);					//Catalog is not necessarily sorted, so we sort it
+  				Sort_Catalog (*MyFittingCatalog,CatalogLines,0,0);					//Catalog is not necessarily sorted, so we sort it
 				//Score fits here
   			} 
   		} 
