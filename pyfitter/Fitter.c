@@ -69,6 +69,7 @@ struct GSL_Bundle
 	gsl_multifit_nlinear_workspace *Workspace;
 	gsl_multifit_nlinear_fdf fdf;
 	gsl_vector *f;
+	gsl_multifit_nlinear_parameters fdf_params;
 };
 
 typedef double (*ScoreFunction)(struct Transition *, void *);
@@ -109,6 +110,7 @@ void Calculate_Intensities (double **/*Intensity*/, struct Transition */*SourceC
 //Triples fitting functions
 int Find_Triples (struct Triple */*TripletoFit*/, double */*LineFrequencies*/, double /*Window*/, int /*LineCount*/);
 double Fit_Lines (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOptBundle*/);
+void Initialize_Triples_Fitter (struct GSL_Bundle */*FitBundle*/);
 int OptFunc_gsl (const gsl_vector */*x*/, void */*params*/, gsl_vector */*f*/);
 int Fit_Triples (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/);
 int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle */*MyOpt_Bundle*/, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
@@ -833,6 +835,22 @@ double Fit_Lines (double *Guess, int Verbose, struct Opt_Bundle GSLOptBundle)
 	return 1.0;
 }
 
+void Initialize_Triples_Fitter (struct GSL_Bundle *FitBundle)
+{
+size_t p = 3;	//These are the sizes of the parameters and data points
+size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 3 unknowns
+	FitBundle->fdf_params = gsl_multifit_nlinear_default_parameters();
+	FitBundle->fdf.f = OptFunc_gsl;
+  	FitBundle->fdf.df = NULL;   //Finite difference Jacobian because there is no general analytic version	
+  	FitBundle->fdf.fvv = NULL;	//No geodesic acceleration, early tests showed no real improvement in using it
+  	FitBundle->fdf.n = n;
+  	FitBundle->fdf.p = p;
+	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
+	FitBundle->T = gsl_multifit_nlinear_trust;
+	FitBundle->Workspace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
+	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
+}
+
 int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, double *ExperimentalLines, int ExperimentalLineCount, struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
 {
 int i,j,k,info,Count,Iterations,Wins,Errors;
@@ -856,6 +874,7 @@ gsl_vector_view x;
   	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
   	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
   	double MyConstants[3];
+  	FitBundle->fdf.params = &MyOpt_Bundle;
   	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
   		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
   			for (k=0;k<TransitionstoFit.TriplesCount[2];k++) {
