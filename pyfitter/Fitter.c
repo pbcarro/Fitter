@@ -79,7 +79,7 @@ typedef double (*ScoreFunction)(struct Transition *, void *);	//Generic function
 //Program setup functions
 int Initialize_Stuff (double **/*ETArray*/, int */*CatTransitions*/, int */*DictTransitions*/, double */*FileDelta*/, int */*StatePoints*/, struct Level **/*DictionaryIn*/, struct Transition **/*CatalogIn*/);
 int Load_ETau_File (char */*FileName*/, double **/*X*/, double */*FileDelta*/, int */*StatePoints*/, int */*StateCount*/);
-int Load_ETau_File2 (char */*FileName*/, struct ETauStruct */*StructToLoad*/, int */*StateCount*/);
+int Load_ETau_File2 (char */*FileName*/, struct ETauStruct */*StructToLoad*/, int */*StateCount*/, int /*Verbose*/);
 int Load_Base_Catalog (char */*FileName*/, struct Transition **/*BaseCatalog*/,  int /*Verbose*/);
 int Load_Base_Catalog_Dictionary (char */*FileName*/, struct Level **/*DictIn*/,  int /*Verbose*/);
 int Load_Exp_File  (char */*FileName*/, double **/*X*/, double **/*Y*/, int /*Verbose*/);
@@ -230,7 +230,8 @@ double *EnergyLevels,*IntensityVals;
 	*/
 	int Loops = 100000;		//Number of loops in a single run
 	int TimingLoops = 10;	//Number if timing runs, used to capture variance in the run time
-	double Timing[TimingLoops];
+	double *Timing;
+	Timing = malloc (TimingLoops*sizeof(double));
 	
 	EnergyLevels = malloc(DictionaryLevels*sizeof(double));
 	IntensityVals = malloc(CatalogTransitions*sizeof(double));
@@ -301,6 +302,8 @@ double *EnergyLevels,*IntensityVals;
         StdDev += pow(Timing[i] - Mean, 2.0);
     StdDev = sqrt(StdDev/TimingLoops);
 	printf ("Average Time:%f, Standard Deviation:%f\n",Mean,StdDev);	
+	free(Timing);
+	
 	return 1;
 
 Error:
@@ -310,7 +313,7 @@ Error:
 
 void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary)
 {
-double *ExpX, *ExpY, *PeakList,GuessConstants[3],*Results;
+double *ExpX, *ExpY, *PeakList,GuessConstants[3];//,*Results;
 int ExperimentalPoints,PeakCount;
 struct Triple TestTriple;
 struct GSL_Bundle TestGSLBundle;
@@ -396,12 +399,10 @@ Error:
 	return 0;
 }
 
-int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *StateCount) 
+int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *StateCount, int Verbose) 
 {
 //This loads the E_Tau file in by reading a single value from the file until there are no more values found in the file
 //This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
-//Figuring out where each state starts and stops is done elsewhere, so the global variables need to be set properly to deal with this
-//ET is preallocated based on the global variables, there are no checks to see if the file matches until later
 int i,StateLimit;
 FILE *FileHandle;
 char * line = NULL;
@@ -412,8 +413,8 @@ size_t len = 0;
 	FileHandle = fopen (FileName, "r");									//Open file read only
 	if (FileHandle == NULL) goto Error;	
 	*StateCount = 0;
-	while (getline(&line, &len, FileHandle) > 0) (*StateCount)++;
-	rewind(FileHandle);
+	while (getline(&line, &len, FileHandle) > 0) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
+	rewind(FileHandle);	//Rewind to the start of the file
 	(*StructToLoad).ETVals = malloc(StateLimit*(*StateCount)*sizeof(double));																
 	if ((*StructToLoad).ETVals == NULL) goto Error;
 	i = 0;
@@ -428,6 +429,11 @@ size_t len = 0;
 	(*StructToLoad).ETVals = realloc((*StructToLoad).ETVals,i*sizeof(double));
 	(*StructToLoad).StatePoints = (int) i/(*StateCount);
 	(*StructToLoad).Delta = 2.0/((*StructToLoad).StatePoints-1);
+	if (Verbose) {
+		printf ("=========Verbose Load_ETau_File2=========\n");
+		printf("Loaded ET File %s with %d states, %d points per state or a delta kappa of %.2e\n",FileName,(*StateCount),(*StructToLoad).StatePoints,(*StructToLoad).Delta);
+		printf ("=======================================\n");
+	}
 	return i;
 Error:
 	printf ("Error Loading file %s\n",FileName);
@@ -646,7 +652,7 @@ int Get_Catalog (struct Transition *CatalogtoFill, double *Constants, int CatLin
 {
 //Utility function for calculating frequencies of a catalog
 int i;	//Declaring i here because I like it, and apparently learned C pre C99
-	for (i=0;i<CatLines;i++) {
+	for (i=0;i<CatLines;i++) {	
 		(CatalogtoFill)[i].Frequency = Get_Frequency (	MyDictionary[(CatalogtoFill)[i].Upper].J,
 														MyDictionary[(CatalogtoFill)[i].Lower].J,
 														(CatalogtoFill)[i].Upper,
