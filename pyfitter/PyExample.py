@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from ctypes import c_uint, c_int, c_double, create_string_buffer, CDLL, POINTER, byref, Structure
-import GSL_CTYPES
+from GSL_CTYPES import *
 
 ###Structure definition for python
 class Level(Structure):
@@ -47,7 +47,6 @@ class Opt_Bundle(Structure):
         ]
 
 class GSL_Bundle(Structure):
-    #Note this is currently not identical to the C code, TransitionGSL is a pointer rather than a finite block
     _fields_ = [
         ("T", 			POINTER(GSL_multifit_nlinear_type)),
         ("Workspace", 	POINTER(GSL_multifit_nlinear_workspace)),
@@ -56,7 +55,7 @@ class GSL_Bundle(Structure):
         ("fdf_params", 	POINTER(GSL_multifit_nlinear_parameters)),
         ]
 
-def Score_Fit (Catalog,Scoring Parameters):
+def Score_Fit (Catalog,Scoring_Parameters):
 	###Score stuff
 	return 1.0
 
@@ -71,7 +70,7 @@ Fit_Triples_Bundle =  FitterLib.Fit_Triples_Bundle
 Initialize_Triples_Fitter =  FitterLib.Initialize_Triples_Fitter
 Load_Exp_File = FitterLib.Load_Exp_File
 Find_Triples = FitterLib.Find_Triples
-Peak_Find = FitterLib.Find_Triples
+Peak_Find = FitterLib.Peak_Find
 
 #(struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, double *ExperimentalLines, int ExperimentalLineCount, struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
 
@@ -80,26 +79,27 @@ ScoringFunction = CFUNCTYPE(c_double, POINTER(Transition), c_void_p)
 CurrentScoringFunction = ScoringFunction(Score_Fit)
 
 ###Create file names for loading
-ETFileName = create_string_buffer(b"J0_25_dk2.dat")
-DictionaryFileName = create_string_buffer(b"Base Catalog Dictionary1.txt")
-CatalogFileName = create_string_buffer(b"Base Catalog.txt")
-ExperimentalFileName = create_string_buffer(b"SomeExperimentalFile.txt")
+ETFileName = create_string_buffer(b"etau.dat")
+DictionaryFileName = create_string_buffer(b"base_cat_dict.txt")
+CatalogFileName = create_string_buffer(b"base_cat.txt")
+ExperimentalFileName = create_string_buffer(b"../tests/ft2494.txt")
 
 ###Create instances of the C structures
 MyLevels = POINTER(Level)()
 MyCatalog = POINTER(Transition)()
-MyET = POINTER(ETauStruct)()
-MyGSLBundle = POINTER(GSL_Bundle)()
+MyET = ETauStruct()
+MyGSLBundle = GSL_Bundle()
 MyOptBundle = Opt_Bundle()
 MyTriple = Triple()
 TestType = Transition*3
 FitTransitions = TestType()
+ConstantsType = c_double * 3
 
 ###Create some variables
-ExpX = POINTER(c_double)
-ExpY = POINTER(c_double)
+ExpX = POINTER(c_double)()
+ExpY = POINTER(c_double)()
 ExperimentalPoints = c_int(0)
-LineList = POINTER(c_double)
+LineList = POINTER(c_double)()
 YMax = c_double(1.0E+3)	#Min and max values of the experimental data that we want to use for peak finding
 YMin = c_double(0.0)
 Window = c_double(100.0)	#Distance from each line center in MHz to use for taking potential lines for the triples
@@ -111,18 +111,21 @@ Statecount = c_int(0)
 Verbose = c_int(0)	#0 for a non verbose program
 
 ###Basic load of program files
-Statecount = Load_Base_Catalog (	CatalogFileName,
-									byref(MyCatalog),
-									Verbose
-)
+DictionaryStateCount = Load_Base_Catalog (	CatalogFileName,
+											byref(MyCatalog),
+											Verbose
+										)
+
 Load_Base_Catalog_Dictionary (	DictionaryFileName, 
 								byref(MyLevels),  
 								Verbose
-)
-Load_ETau_File2 (ETFileName,
-				byref(MyET),
-				byref(ETSTATECOUNT)
-)
+							)
+Load_ETau_File2 (	ETFileName,
+					byref(MyET),
+					byref(Statecount),
+					Verbose
+				)
+
 
 ##Example catalog calculation and sort
 Constants = ConstantsType (3000.0,2000.0,1000.0)
@@ -133,11 +136,17 @@ Get_Catalog (	MyCatalog,
 				MyET,
 				MyLevels
 )
-
 ###Example Triples fit
-ExperimentalPoints = Load_Exp_File (ExperimentalFileName,byref(X),byref(Y),Verbose)
+Verbose.value = 0
+ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
+										byref(ExpX),
+										byref(ExpY),
+										Verbose
+									)
+
 Initialize_Triples_Fitter (MyGSLBundle)
 LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints)
+
 Find_Triples (byref(MyTriple),LineList,Window,LineCount)
 MyOptBundle.ETGSL = MyET
 MyOptBundle.MyDictionary = MyLevels
