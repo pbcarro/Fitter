@@ -64,6 +64,8 @@ class AsymmetricMolecule:
         self.seed = None
         self.niter = 100
         self.constants = [10000., 5000., 3000.]
+        self.temperature = c_double(2.0)
+        self.dipoles = [1.0,1.0,1.0]
         self.verbose = False
         # These are static paths that a user can overwrite
         module_path = Path(__file__).parent
@@ -110,8 +112,11 @@ class AsymmetricMolecule:
         self.FitterLib.Load_ETau_File2(
             self.string_buffers["etau"],
             byref(self.et),
-            byref(self._etstatecount)
+            byref(self._etstatecount),
+            self.verbose
         )
+        if (self._etstatecount != self._statecount):
+        	print ("Warning: Catalog and Dictionary have different ")
 
     def _load_library(self):
         """
@@ -131,16 +136,29 @@ class AsymmetricMolecule:
         Private method to set up the ctypes and pointers prior to spinning up
         the simulations.
         """
-        #self._etArray = POINTER(c_double)()
-        #self._filedelta = c_double(0)
         self._statepoints = c_int(0)
         self._statecount = c_int(0)
-        #self._etstatecount = c_int(0)
+        self._etstatecount = c_int(0)
         self._verbose = c_int(int(self.verbose))
         self._constantsType = c_double * 3
         self.levels = POINTER(Level)()
         self.catalog = POINTER(Transition)()
         self.et = ETauStruct()
+    
+    def get_Intensity(self):
+        """
+        Method to set up the ctypes and pointers prior to spinning up
+        the simulations.
+        """
+		dipoles = self._constantsType(self.dipoles)
+		self.FitterLib.Calculate_Intensities (
+			BaseCatalog, #CatalogTransitions, BaseDict, 3.0, Dipoles);(
+            self.catalog,
+            self._statecount,
+            self.levels,
+            self.temperature,
+           	dipoles
+        )
 
     def simulate(self, constants=None):
         """
