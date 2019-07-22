@@ -105,7 +105,7 @@ int Catalog_Comparator_Index_Upper (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
 void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/);
-void Calculate_Intensities (double **/*Intensity*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, double */*Energies*/, double /*T*/, double */*Dipoles*/);
+void Calculate_Intensities (struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, struct Level */*MyDictionary*/, double /*T*/, double */*Dipoles*/);
 
 //Triples fitting functions
 int Peak_Find (double **/*LineList*/, double /*Max*/, double /*Min*/, double */*X*/, double */*Y*/, int /*ArraySize*/);
@@ -269,7 +269,7 @@ double *EnergyLevels,*IntensityVals;
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Upper);
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Lower);
 	Calculate_State_Energies (BaseDict, SortedCatalog, CatalogTransitions);
-	Calculate_Intensities (&IntensityVals, BaseCatalog, CatalogTransitions, EnergyLevels, 3.0, Dipoles);	
+	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 3.0, Dipoles);	
 
 	
 	printf ("Starting timing test run. %d loops per run, %d runs",Loops,TimingLoops);
@@ -1040,11 +1040,11 @@ int i;
 	}
 }
 
-void Calculate_Intensities (double **Intensity, struct Transition *SourceCatalog, int CatalogTransitions, double *Energies, double T, double *Dipoles)
+void Calculate_Intensities (struct Transition *SourceCatalog, int CatalogTransitions, struct Level *MyDictionary, double T, double *Dipoles)
 {
 int i;
 	for (i=0;i<CatalogTransitions;i++) {
-		(*Intensity)[i] = Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(exp(-1.0*Energies[SourceCatalog[i].Lower]/T)-exp(-1.0*Energies[SourceCatalog[i].Upper]/T));
+		(SourceCatalog[i]).Intensity = Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
 		//printf ("%e %f %f\n",(*Intensity)[i],Energies[SourceCatalog[i].Lower],Energies[SourceCatalog[i].Upper]);
 	}
 }
