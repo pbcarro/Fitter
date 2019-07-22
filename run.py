@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
-import main
-import line_profiler
+from pyfitter.pyfitter import AsymmetricMolecule
 
-molecule = main.AsymmetricMolecule(**{"verbose": False})
+molecule = AsymmetricMolecule(**{"verbose": False})
 
 results = molecule.simulate_batch(1000, False)
 
