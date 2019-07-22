@@ -72,7 +72,7 @@ struct GSL_Bundle
 	gsl_multifit_nlinear_parameters fdf_params;
 };
 
-typedef double (*ScoreFunction)(struct Transition *, void *);
+typedef double (*ScoreFunction)(struct Transition *, void *);	//Generic function pointer for the scoring function used in the triples fitter
 
 //=============Function Prototypes==============
 
@@ -120,6 +120,8 @@ void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nline
 //New Functions
 int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
 
+void Test_Triples (char *, struct Transition *, struct Level *);
+
 int main (int argc, char *argv[])  
 {
 double Constants[3], Dipoles[3];	
@@ -127,17 +129,29 @@ struct ETauStruct ETStruct;
 struct Transition *BaseCatalog, *SortedCatalog;	//Model catalog used to save time and simplify	
 struct Level	*BaseDict;						//The base catalog dictionary, translates from an index to J/Ka/Kc 
 int CatalogTransitions,DictionaryLevels;		//Number of transitions in the catalogs
+int i,j;
 double *EnergyLevels,*IntensityVals;
 
-	int Loops = 100000;
-	int i,j;
-	double Timing[100];	
+	
 	if (!Initialize_Stuff(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog)) {
 		goto Error;
 	}
+	Constants[0] = 3000.0;
+	Constants[1] = 2000.0;
+	Constants[2] = 1000.0;
 	
-	//Load_ETau_File2 ("J0_25_dk2.dat", &ETStruct, &TempInt);
-	//Load_ETau_File2 ("J0_25_dk3.dat", &ETStruct, &TempInt);
+	Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
+					Constants, 			//Rotational constants for the calculation
+					CatalogTransitions,	//# of transitions in the catalog
+					0,					//Verbose
+					ETStruct,
+					BaseDict
+			);
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	
+	Test_Triples ("../tests/ft2494.txt",BaseCatalog,BaseDict);
+	
+
 	/*
 	FILE *FileHandle;	
 	
@@ -200,7 +214,20 @@ double *EnergyLevels,*IntensityVals;
 	fclose(FileHandle);
 	*/
 	
-
+	
+	
+	/*
+	Test Code - Speed test
+	The code below runs the same catalog calculation over and over again as a speed test to see how fast it's running
+	Current Benchmarks (Full J=25 Catalog):
+		2013 Core i7 Macbook Pro - ~8 seconds for 100000 calculate+sorts
+		2017 Core i7 4970 - Ubuntu ~6 seconds for 100000 calculate+sors
+		Updated 7/22/19 
+	*/
+	int Loops = 100000;		//Number of loops in a single run
+	int TimingLoops = 10;	//Number if timing runs, used to capture variance in the run time
+	double Timing[TimingLoops];
+	
 	EnergyLevels = malloc(DictionaryLevels*sizeof(double));
 	IntensityVals = malloc(CatalogTransitions*sizeof(double));
 	
@@ -240,8 +267,8 @@ double *EnergyLevels,*IntensityVals;
 	Calculate_Intensities (&IntensityVals, BaseCatalog, CatalogTransitions, EnergyLevels, 3.0, Dipoles);	
 
 	
-	
-	for (j=0;j<100;j++) {
+	printf ("Starting timing test run. %d loops per run, %d runs",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
 		clock_t begin = clock();
 		for (i=0;i<Loops;i++) {
 			Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
@@ -261,20 +288,42 @@ double *EnergyLevels,*IntensityVals;
 	double Sum,Mean,StdDev;
 	Sum = 0.0;
 	StdDev = 0.0;
-	for(i=0; i<100; ++i)
+	for(i=0; i<TimingLoops; ++i)
     {
         Sum += Timing[i];
     }
-    Mean = Sum/100.0;
-    for(i=0; i<100; ++i)
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
         StdDev += pow(Timing[i] - Mean, 2.0);
-    StdDev = sqrt(StdDev/100);
+    StdDev = sqrt(StdDev/TimingLoops);
 	printf ("Average Time:%f, Standard Deviation:%f\n",Mean,StdDev);	
 	return 1;
 
 Error:
 	printf ("Error Initializing program, exiting\n");
 	return 1;
+}
+
+void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary)
+{
+double *ExpX, *ExpY, *PeakList,GuessConstants[3],*Results;
+int ExperimentalPoints,PeakCount;
+struct Triple TestTriple;
+struct GSL_Bundle TestGSLBundle;
+	ExperimentalPoints = Load_Exp_File  (FileName, &ExpX, &ExpY, 1);
+	PeakCount = Peak_Find (&PeakList, 100.0, 0.003, ExpX, ExpY, ExperimentalPoints);
+	printf ("Found %d experimental peaks\n", PeakCount);
+	TestTriple.TransitionList[0] = FittingCatalog[400];
+	TestTriple.TransitionList[1] = FittingCatalog[500];
+	TestTriple.TransitionList[2] = FittingCatalog[450];
+	Find_Triples (&TestTriple, PeakList, 100.0, PeakCount);
+	printf ("Found %d %d %d experimental lines for the proposed triple\n",TestTriple.TriplesCount[0],TestTriple.TriplesCount[1],TestTriple.TriplesCount[2]);
+	Initialize_Triples_Fitter (&TestGSLBundle);
+	GuessConstants[0] = 3002.0;
+	GuessConstants[1] = 2004.0;
+	GuessConstants[2] = 998.0;
+	//Fit_Triples_Bundle (TestTriple, GuessConstants, &Results, &FittingCatalog, int CatalogLines, TestGSLBundle, struct Opt_Bundle *MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters);
+
 }
 
 int Initialize_Stuff (double **ETArray, int *CatTransitions, int *DictLevels, double *FileDelta, int *StatePoints, struct Level **DictionaryIn, struct Transition **CatalogIn) 
@@ -904,7 +953,7 @@ gsl_vector_view x;
   				Count++;
   				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle->ETGSL,MyOpt_Bundle->MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
   				Sort_Catalog (*MyFittingCatalog,CatalogLines,0,0);					//Catalog is not necessarily sorted, so we sort it
-				TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
+				//TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
   			} 
   		} 
   	}
