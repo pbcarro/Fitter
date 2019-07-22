@@ -131,13 +131,13 @@ class AsymmetricMolecule:
         Private method to set up the ctypes and pointers prior to spinning up
         the simulations.
         """
-        self._etArray = POINTER(c_double)()
-        self._filedelta = c_double(0)
+        #self._etArray = POINTER(c_double)()
+        #self._filedelta = c_double(0)
         self._statepoints = c_int(0)
         self._statecount = c_int(0)
-        self._etstatecount = c_int(0)
+        #self._etstatecount = c_int(0)
         self._verbose = c_int(int(self.verbose))
-        self._constantsType = c_double * 10
+        self._constantsType = c_double * 3
         self.levels = POINTER(Level)()
         self.catalog = POINTER(Transition)()
         self.et = ETauStruct()
