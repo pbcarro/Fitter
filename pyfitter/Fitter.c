@@ -151,7 +151,13 @@ double *EnergyLevels,*IntensityVals;
 	
 	Test_Triples ("../tests/ft2494.txt",BaseCatalog,BaseDict);
 	
-
+	/*
+	Test Code - Accuracy test
+	The code below builds three different catalogs at the oblate, prolate, and asymmetric limits and saves them. 
+	Please note that the filenames are not dynamic and you should change them depending on the resolution of the solver used.
+	
+	*/
+	
 	/*
 	FILE *FileHandle;	
 	
@@ -213,9 +219,7 @@ double *EnergyLevels,*IntensityVals;
 	}
 	fclose(FileHandle);
 	*/
-	
-	
-	
+		
 	/*
 	Test Code - Speed test
 	The code below runs the same catalog calculation over and over again as a speed test to see how fast it's running
