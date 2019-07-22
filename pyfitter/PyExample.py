@@ -71,8 +71,9 @@ Initialize_Triples_Fitter =  FitterLib.Initialize_Triples_Fitter
 Load_Exp_File = FitterLib.Load_Exp_File
 Find_Triples = FitterLib.Find_Triples
 Peak_Find = FitterLib.Peak_Find
-
-#(struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, double *ExperimentalLines, int ExperimentalLineCount, struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
+Calculate_Intensities = FitterLib.Calculate_Intensities
+Calculate_State_Energies = FitterLib.Calculate_State_Energies
+Sort_Catalog = FitterLib.Sort_Catalog
 
 ####Define a scoring function in python
 ScoringFunction = CFUNCTYPE(c_double, POINTER(Transition), c_void_p)
@@ -111,7 +112,7 @@ Statecount = c_int(0)
 Verbose = c_int(0)	#0 for a non verbose program
 
 ###Basic load of program files
-DictionaryStateCount = Load_Base_Catalog (	CatalogFileName,
+CatalogStateCount = Load_Base_Catalog (	CatalogFileName,
 											byref(MyCatalog),
 											Verbose
 										)
@@ -131,11 +132,21 @@ Load_ETau_File2 (	ETFileName,
 Constants = ConstantsType (3000.0,2000.0,1000.0)
 Get_Catalog (	MyCatalog, 		
 				Constants, 			
-				Statecount,	
+				CatalogStateCount,	
 				Verbose,					
 				MyET,
 				MyLevels
 )
+
+Sort_Catalog (	MyCatalog,
+				CatalogStateCount,
+				c_int(2),		#Sort by frequency
+				c_int(0)		#Use insertion sort to do it
+			)
+
+##Example catalog energy calculation
+Calculate_State_Energies (MyLevels, MyCatalog, CatalogStateCount)
+
 ###Example Triples fit
 Verbose.value = 0
 ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
