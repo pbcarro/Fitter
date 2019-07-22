@@ -104,7 +104,7 @@ int Catalog_Comparator_Intensity (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Upper (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
-void Calculate_State_Energies (double **/*UpperStateEnergies*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/);
+void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/);
 void Calculate_Intensities (double **/*Intensity*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, double */*Energies*/, double /*T*/, double */*Dipoles*/);
 
 //Triples fitting functions
@@ -268,7 +268,7 @@ double *EnergyLevels,*IntensityVals;
 	);
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Upper);
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Lower);
-	Calculate_State_Energies (&EnergyLevels, SortedCatalog, CatalogTransitions);
+	Calculate_State_Energies (BaseDict, SortedCatalog, CatalogTransitions);
 	Calculate_Intensities (&IntensityVals, BaseCatalog, CatalogTransitions, EnergyLevels, 3.0, Dipoles);	
 
 	
@@ -1028,14 +1028,14 @@ double rcond;
 	fprintf (stderr, "iter %2zu: A = %.4f, B = %.4f, C = %.4f, cond(J) = %8.4f, |f(x)| = %.4f\n", iter, gsl_vector_get(x, 0), gsl_vector_get(x, 1), gsl_vector_get(x, 2), 1.0 / rcond, gsl_blas_dnrm2(f));
 }
 
-void Calculate_State_Energies (double **Energies, struct Transition *SourceCatalog, int CatalogTransitions)
+void Calculate_State_Energies (struct Level *MyCatalog, struct Transition *SourceCatalog, int CatalogTransitions)
 {
 //Function to get the energies of levels in a catalog
 int i;
-	(*Energies)[0] = 0.0;
+	(MyCatalog[0]).Energy = 0.0;
 	for (i=0;i<CatalogTransitions;i++) {
-		(*Energies)[SourceCatalog[i].Upper] = (*Energies)[SourceCatalog[i].Lower]+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
-		(*Energies)[SourceCatalog[i].Upper] *= 4.8E-5;
+		(MyCatalog[SourceCatalog[i].Upper]).Energy = (MyCatalog[SourceCatalog[i].Lower]).Energy+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
+		(MyCatalog[SourceCatalog[i].Upper]).Energy *= 4.8E-5;
 		//printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (*Energies)[SourceCatalog[i].Upper], SourceCatalog[i].Upper, SourceCatalog[i].Lower);
 	}
 }
