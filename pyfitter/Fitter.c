@@ -108,7 +108,7 @@ void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */
 void Calculate_Intensities (struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, struct Level */*MyDictionary*/, double /*T*/, double */*Dipoles*/);
 
 //Triples fitting functions
-int Peak_Find (double **/*LineList*/, double /*Max*/, double /*Min*/, double */*X*/, double */*Y*/, int /*ArraySize*/);
+int Peak_Find (double **/*LineList*/, double /*Max*/, double /*Min*/, double */*X*/, double */*Y*/, int /*ArraySize*/, int /*Verbose*/);
 int Find_Triples (struct Triple */*TripletoFit*/, double */*LineFrequencies*/, double /*Window*/, int /*LineCount*/);
 double Fit_Lines (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOptBundle*/);
 void Initialize_Triples_Fitter (struct GSL_Bundle */*FitBundle*/);
@@ -322,7 +322,7 @@ struct Opt_Bundle TestOptBundle;
 ScoreFunction TestFunction;
 	
 	ExperimentalPoints = Load_Exp_File  (FileName, &ExpX, &ExpY, 1);
-	PeakCount = Peak_Find (&PeakList, 100.0, 0.003, ExpX, ExpY, ExperimentalPoints);
+	PeakCount = Peak_Find (&PeakList, 100.0, 0.003, ExpX, ExpY, ExperimentalPoints,0);
 	printf ("Found %d experimental peaks\n", PeakCount);
 	TestTriple.TransitionList[0] = FittingCatalog[400];
 	TestTriple.TransitionList[1] = FittingCatalog[500];
@@ -670,7 +670,7 @@ double Kappa;
 int Get_Catalog (struct Transition *CatalogtoFill, double *Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
 {
 //Utility function for calculating frequencies of a catalog
-int i;	//Declaring i here because I like it, and apparently learned C pre C99
+int i;	//Declaring i here because I like it, and apparently learned C pre C99Constants
 	for (i=0;i<CatLines;i++) {	
 		(CatalogtoFill)[i].Frequency = Get_Frequency (	MyDictionary[(CatalogtoFill)[i].Upper].J,
 														MyDictionary[(CatalogtoFill)[i].Lower].J,
@@ -875,7 +875,6 @@ int i,Count;
 		i++;
 	}
 	TripletoFit->TriplesCount[2] = Count;
-	
 	TripletoFit->TriplesList = realloc(TripletoFit->TriplesList,TripletoFit->TriplesCount[0]*TripletoFit->TriplesCount[1]*TripletoFit->TriplesCount[2]*sizeof(double));	
 	return 1;
 }
@@ -950,11 +949,13 @@ gsl_vector_view x;
   	Transitions[1].Lower = TransitionstoFit.TransitionList[1].Lower;
 	Transitions[2].Upper = TransitionstoFit.TransitionList[2].Upper;
   	Transitions[2].Lower = TransitionstoFit.TransitionList[2].Lower;  
+  	printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
   	Wins = 0;		//Track the total number of wins for the current scoring system
   	Count = 0;		//Track the total number of constants (A+B+C) in the fit results
   	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
   	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
   	double MyConstants[3];
+  	printf ("%i\n",CatalogLines);
   	FitBundle->fdf.params = &MyOpt_Bundle;
   	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
   		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
@@ -1027,7 +1028,7 @@ double GSLConstants[3];	//Declare some doubles to hold our constants
 	return GSL_SUCCESS;
 }
 
-int Peak_Find (double **LineList, double Max, double Min, double *X, double *Y, int ArraySize)
+int Peak_Find (double **LineList, double Max, double Min, double *X, double *Y, int ArraySize, int Verbose)
 {
 //Pretty standard implementation of a peakfinding algorithm
 //If a point is within the min/max amplitude and higher than the two points on either side we consider it a peak		
@@ -1042,7 +1043,10 @@ int i,PeakCount;
 			}
 		}
 	}	
-	*LineList = realloc(*LineList,i*sizeof(double));	
+	if (Verbose) {
+		printf ("Found %d peaks\n",PeakCount);
+	}
+	*LineList = realloc(*LineList,PeakCount*sizeof(double));	
 	return PeakCount;
 }
 
