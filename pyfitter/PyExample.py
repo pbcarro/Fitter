@@ -34,7 +34,7 @@ class ETauStruct(Structure):
 class Triple(Structure):
     _fields_ = [
         ("TriplesCount", c_uint*3),
-        ("TransitionList", Transition),
+        ("TransitionList", Transition*3),
         ("TriplesList", POINTER(c_double))
         ]
 
@@ -157,10 +157,17 @@ ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
 										Verbose
 									)
 
+
 Initialize_Triples_Fitter (MyGSLBundle)
-LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints)
+print (MyET.Delta)
+
+LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints,Verbose)
+MyTriple.TransitionList[0] = MyCatalog[400]
+MyTriple.TransitionList[1] = MyCatalog[500]
+MyTriple.TransitionList[2] = MyCatalog[450]
 Find_Triples (byref(MyTriple),LineList,Window,LineCount)
-print (MyTriple.TriplesCount[0])
+###Correct till here
+
 
 MyOptBundle.ETGSL = MyET
 MyOptBundle.MyDictionary = MyLevels
@@ -176,3 +183,7 @@ Fit_Triples_Bundle 	(	MyTriple,
  						#CurrentScoringFunction,
 # 						#Scoring_Parameters
 					)
+					
+					
+					
+					
