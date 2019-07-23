@@ -32,7 +32,6 @@ class GSL_matrix(Structure):
 		]
 
 ###Level 1 structures
-
 ###Function pointer types for Level 1 gsl structures
 free_type = CFUNCTYPE(	c_void_p,
 						c_void_p
@@ -43,6 +42,13 @@ f_type = CFUNCTYPE(	c_int,
 					c_void_p,
 					POINTER(GSL_vector)
 					)
+
+df_type = CFUNCTYPE(	c_int,
+					POINTER(GSL_vector),
+					c_void_p,
+					POINTER(GSL_matrix)
+					)
+					
 fvv_type = CFUNCTYPE(	c_int, 
 						POINTER(GSL_vector), 
 						POINTER(GSL_vector), 
@@ -113,7 +119,7 @@ solver_rcond_type = CFUNCTYPE(	c_int,
 class GSL_fdf(Structure):
 	_fields_=	[	
 		("f",		f_type),
-		("df",		f_type),
+		("df",		df_type),
 		("fvv",		fvv_type),
 		("n",		c_size_t),
 		("p",		c_size_t),
