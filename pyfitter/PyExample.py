@@ -157,8 +157,7 @@ ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
 										Verbose
 									)
 
-
-Initialize_Triples_Fitter (MyGSLBundle)
+Initialize_Triples_Fitter (byref(MyGSLBundle)) 
 print (MyET.Delta)
 
 LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints,Verbose)
