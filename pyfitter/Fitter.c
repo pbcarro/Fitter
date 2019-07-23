@@ -114,13 +114,14 @@ double Fit_Lines (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOpt
 void Initialize_Triples_Fitter (struct GSL_Bundle */*FitBundle*/);
 int OptFunc_gsl (const gsl_vector */*x*/, void */*params*/, gsl_vector */*f*/);
 int Fit_Triples (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/);
-int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle */*MyOpt_Bundle*/, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
+int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle /*MyOpt_Bundle*/, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
 void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nlinear_workspace */*w*/);
 
 //New Functions
 int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
 
-void Test_Triples (char *, struct Transition *, struct Level *);
+void Test_Triples (char *, struct Transition *, struct Level *, int /*CatalogLines*/, struct ETauStruct /*FittingETStruct*/);
+double DummyFunction (struct Transition */*MyCatalog*/, void */*Data*/);
 
 int main (int argc, char *argv[])  
 {
@@ -149,7 +150,7 @@ double *EnergyLevels,*IntensityVals;
 			);
 	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
 	
-	Test_Triples ("../tests/ft2494.txt",BaseCatalog,BaseDict);
+	Test_Triples ("../tests/ft2494.txt",BaseCatalog,BaseDict,CatalogTransitions,ETStruct);
 	
 	/*
 	Test Code - Accuracy test
@@ -272,7 +273,7 @@ double *EnergyLevels,*IntensityVals;
 	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 3.0, Dipoles);	
 
 	
-	printf ("Starting timing test run. %d loops per run, %d runs",Loops,TimingLoops);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
 	for (j=0;j<TimingLoops;j++) {
 		clock_t begin = clock();
 		for (i=0;i<Loops;i++) {
@@ -311,12 +312,15 @@ Error:
 	return 1;
 }
 
-void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary)
+void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary, int CatalogLines, struct ETauStruct FittingETStruct)
 {
-double *ExpX, *ExpY, *PeakList,GuessConstants[3];//,*Results;
+double *ExpX, *ExpY, *PeakList,GuessConstants[3],*Results;
 int ExperimentalPoints,PeakCount;
 struct Triple TestTriple;
 struct GSL_Bundle TestGSLBundle;
+struct Opt_Bundle TestOptBundle;
+ScoreFunction TestFunction;
+	
 	ExperimentalPoints = Load_Exp_File  (FileName, &ExpX, &ExpY, 1);
 	PeakCount = Peak_Find (&PeakList, 100.0, 0.003, ExpX, ExpY, ExperimentalPoints);
 	printf ("Found %d experimental peaks\n", PeakCount);
@@ -329,7 +333,22 @@ struct GSL_Bundle TestGSLBundle;
 	GuessConstants[0] = 3002.0;
 	GuessConstants[1] = 2004.0;
 	GuessConstants[2] = 998.0;
-	//Fit_Triples_Bundle (TestTriple, GuessConstants, &Results, &FittingCatalog, int CatalogLines, TestGSLBundle, struct Opt_Bundle *MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters);
+	TestOptBundle.ETGSL = FittingETStruct;
+	TestOptBundle.MyDictionary = FittingDictionary;
+	TestOptBundle.TransitionsGSL[0] = TestTriple.TransitionList[0];
+	TestOptBundle.TransitionsGSL[1] = TestTriple.TransitionList[1];
+	TestOptBundle.TransitionsGSL[2] = TestTriple.TransitionList[2];
+	TestFunction = &DummyFunction;
+	Fit_Triples_Bundle (	TestTriple, 
+							GuessConstants, 
+							&Results, 
+							&FittingCatalog, 
+							CatalogLines, 
+							&TestGSLBundle, 
+							TestOptBundle, 
+							TestFunction, 
+							0
+						);
 
 }
 
@@ -911,7 +930,7 @@ size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 
 	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
 }
 
-int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
+int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
 {
 int i,j,k,info,Count,Iterations,Wins,Errors;
 const double xtol = 1e-8;
@@ -921,6 +940,8 @@ const size_t p = 3;
 struct Transition Transitions[3];
 gsl_vector *Final;
 gsl_vector_view x;
+  	
+  	double Temp;
   	x = gsl_vector_view_array (Guess, p);							//Set the guess	
   	//Extract the transitions we'll use for the fit
   	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
@@ -942,7 +963,7 @@ gsl_vector_view x;
   				Transitions[0].Frequency = TransitionstoFit.TriplesList[i];				
   				Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
   				Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
-				FitBundle->fdf.params = &Transitions;															//Set the parameters for this run
+				FitBundle->fdf.params = &MyOpt_Bundle;															//Set the parameters for this run
    				gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
 				FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
   				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 20 iterations
@@ -952,18 +973,24 @@ gsl_vector_view x;
   					printf ("Error: Unconverged Fit: %.4f %.4f %.4f\n",Transitions[0].Frequency,Transitions[1].Frequency,Transitions[2].Frequency);
   					Errors++;
   				}
-   				(*FitResults)[Count] = gsl_vector_get(Final, 0);	//Get the final A
-  				MyConstants[0] = (*FitResults)[Count];				//Update the constants
+   				//(*FitResults)[Count] = gsl_vector_get(Final, 0);	//Get the final A
+  				Temp = gsl_vector_get(Final, 0);	//Get the final A
+  				//MyConstants[0] = (*FitResults)[Count];				//Update the constants
+  				MyConstants[0] = Temp;
   				Count++;											//Track the number of items in FitResults
-  				(*FitResults)[Count] = gsl_vector_get(Final, 1);	
-  				MyConstants[1] = (*FitResults)[Count];
+  				//(*FitResults)[Count] = gsl_vector_get(Final, 1);	
+  				Temp = gsl_vector_get(Final, 1);
+  				//MyConstants[1] = (*FitResults)[Count];
+  				MyConstants[1] = Temp;
   				Count++;
-  				(*FitResults)[Count] = gsl_vector_get(Final, 2);
-  				MyConstants[2] = (*FitResults)[Count];
+  				//(*FitResults)[Count] = gsl_vector_get(Final, 2);
+  				//MyConstants[2] = (*FitResults)[Count];
+  				Temp = gsl_vector_get(Final, 2);
+  				MyConstants[2] = Temp;
   				Count++;
-  				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle->ETGSL,MyOpt_Bundle->MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
+  				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle.ETGSL,MyOpt_Bundle.MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
   				Sort_Catalog (*MyFittingCatalog,CatalogLines,0,0);					//Catalog is not necessarily sorted, so we sort it
-				//TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
+				TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
   			} 
   		} 
   	}
@@ -1116,8 +1143,11 @@ Error:
 	return 0;
 }
 
-
-
+double DummyFunction (struct Transition *MyCatalog, void *Data)
+{
+	
+	return 1.0;
+}
 
 
 
