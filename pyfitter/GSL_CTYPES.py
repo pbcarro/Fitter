@@ -43,7 +43,7 @@ f_type = CFUNCTYPE(	c_int,
 					POINTER(GSL_vector)
 					)
 
-df_type = CFUNCTYPE(	c_int,
+df_type = CFUNCTYPE(c_int,
 					POINTER(GSL_vector),
 					c_void_p,
 					POINTER(GSL_matrix)
@@ -55,6 +55,7 @@ fvv_type = CFUNCTYPE(	c_int,
 						POINTER(c_void_p),
 						POINTER(GSL_vector)
 					)
+
 trs_alloc_type = CFUNCTYPE	(	c_void_p,
 							c_void_p,
 							c_size_t,
@@ -166,7 +167,7 @@ class GSL_multifit_nlinear_parameters(Structure):
 		("fdtype",		c_int),
 		("factor_up",	c_double),
 		("factor_down",	c_double),
-		("factor_avmax",c_double),
+		("avmax",		c_double),
 		("h_df",		c_double),
 		("h_fvv",		c_double),
  		]
