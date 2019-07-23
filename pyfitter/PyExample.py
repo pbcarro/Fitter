@@ -33,7 +33,7 @@ class ETauStruct(Structure):
 
 class Triple(Structure):
     _fields_ = [
-        ("TriplesCount", c_uint),
+        ("TriplesCount", c_uint*3),
         ("TransitionList", Transition),
         ("TriplesList", POINTER(c_double))
         ]
@@ -102,7 +102,7 @@ ExpY = POINTER(c_double)()
 ExperimentalPoints = c_int(0)
 LineList = POINTER(c_double)()
 YMax = c_double(1.0E+3)	#Min and max values of the experimental data that we want to use for peak finding
-YMin = c_double(0.0)
+YMin = c_double(0.003)
 Window = c_double(100.0)	#Distance from each line center in MHz to use for taking potential lines for the triples
 LineCount = c_int(0)
 FitResults = POINTER(c_double)()
@@ -113,7 +113,7 @@ Statecount = c_int(0)
 Verbose = c_int(0)	#0 for a non verbose program
 
 ###Basic load of program files
-CatalogStateCount = Load_Base_Catalog (	CatalogFileName,
+CatalogStateCount = Load_Base_Catalog (		CatalogFileName,
 											byref(MyCatalog),
 											Verbose
 										)
@@ -139,6 +139,7 @@ Get_Catalog (	MyCatalog,
 				MyLevels
 )
 
+
 Sort_Catalog (	MyCatalog,
 				CatalogStateCount,
 				c_int(2),		#Sort by frequency
@@ -158,11 +159,13 @@ ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
 
 Initialize_Triples_Fitter (MyGSLBundle)
 LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints)
-
 Find_Triples (byref(MyTriple),LineList,Window,LineCount)
+print (MyTriple.TriplesCount[0])
+
 MyOptBundle.ETGSL = MyET
 MyOptBundle.MyDictionary = MyLevels
 MyOptBundle.TransitionsGSL = FitTransitions
+Constants = ConstantsType (3000.0,2000.0,1000.0)
 Fit_Triples_Bundle 	(	MyTriple,
  						Constants,
  						FitResults,
