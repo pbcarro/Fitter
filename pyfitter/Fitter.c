@@ -921,12 +921,12 @@ size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 
 	FitBundle->fdf.f = OptFunc_gsl;
   	FitBundle->fdf.df = NULL;   //Finite difference Jacobian because there is no general analytic version	
   	FitBundle->fdf.fvv = NULL;	//No geodesic acceleration, early tests showed no real improvement in using it
-  	FitBundle->fdf.n = n;
-  	FitBundle->fdf.p = p;
-	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
-	FitBundle->T = gsl_multifit_nlinear_trust;
-	FitBundle->Workspace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
-	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
+//   	FitBundle->fdf.n = n;
+//  FitBundle->fdf.p = p;
+// 	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
+// 	FitBundle->T = gsl_multifit_nlinear_trust;
+// 	FitBundle->Workspace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
+// 	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
 }
 
 int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
@@ -949,18 +949,19 @@ gsl_vector_view x;
   	Transitions[1].Lower = TransitionstoFit.TransitionList[1].Lower;
 	Transitions[2].Upper = TransitionstoFit.TransitionList[2].Upper;
   	Transitions[2].Lower = TransitionstoFit.TransitionList[2].Lower;  
-  	printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
+  	//printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
   	Wins = 0;		//Track the total number of wins for the current scoring system
   	Count = 0;		//Track the total number of constants (A+B+C) in the fit results
   	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
   	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
   	double MyConstants[3];
-  	printf ("%i\n",CatalogLines);
+  	//printf ("%f\n",MyOpt_Bundle.ETGSL.Delta);
   	FitBundle->fdf.params = &MyOpt_Bundle;
   	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
   		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
   			for (k=0;k<TransitionstoFit.TriplesCount[2];k++) {
   				//This is why the transitions were extracted. We set the 3 transition's frequencies to those of the triple we're working on and hand it off to the fitter
+  				
   				Transitions[0].Frequency = TransitionstoFit.TriplesList[i];				
   				Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
   				Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
