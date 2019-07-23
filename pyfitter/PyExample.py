@@ -105,7 +105,8 @@ YMax = c_double(1.0E+3)	#Min and max values of the experimental data that we wan
 YMin = c_double(0.0)
 Window = c_double(100.0)	#Distance from each line center in MHz to use for taking potential lines for the triples
 LineCount = c_int(0)
-FitResults = POINTER(c_double)
+FitResults = POINTER(c_double)()
+Scoring_Parameters = c_void_p(0)
 
 ##C integer type initialized to 0
 Statecount = c_int(0)
@@ -163,12 +164,12 @@ MyOptBundle.ETGSL = MyET
 MyOptBundle.MyDictionary = MyLevels
 MyOptBundle.TransitionsGSL = FitTransitions
 Fit_Triples_Bundle 	(	MyTriple,
-						Constants,
-						FitResults,
-						byref(MyCatalog),
-						Statecount,
-						MyGSLBundle,
-						MyOptBundle,
-						CurrentScoringFunction,
-						0
+ 						Constants,
+ 						FitResults,
+ 						byref(MyCatalog),
+ 						CatalogStateCount,
+ 						MyGSLBundle,
+ 						MyOptBundle,
+ 						#CurrentScoringFunction,
+# 						#Scoring_Parameters
 					)
