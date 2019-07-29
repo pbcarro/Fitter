@@ -15,7 +15,6 @@ gcc -Wall -o Fitter.so -shared -fPIC -O3 -funroll-loops Fitter.c -lm -lgsl -lgsl
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_matrix.h>
@@ -112,9 +111,12 @@ int Peak_Find (double **/*LineList*/, double /*Max*/, double /*Min*/, double */*
 int Find_Triples (struct Triple */*TripletoFit*/, double */*LineFrequencies*/, double /*Window*/, int /*LineCount*/);
 double Fit_Lines (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOptBundle*/);
 void Initialize_Triples_Fitter (struct GSL_Bundle */*FitBundle*/);
+void Initialize_Triples_Fitter_Split (struct GSL_Bundle *, gsl_multifit_nlinear_workspace **);
 int OptFunc_gsl (const gsl_vector */*x*/, void */*params*/, gsl_vector */*f*/);
 int Fit_Triples (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/);
 int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle /*MyOpt_Bundle*/, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
+int Fit_Triples_Bundle_Split (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle /*MyOpt_Bundle*/, gsl_multifit_nlinear_workspace *, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
+
 void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nlinear_workspace */*w*/);
 
 //New Functions
@@ -320,6 +322,8 @@ struct Triple TestTriple;
 struct GSL_Bundle TestGSLBundle;
 struct Opt_Bundle TestOptBundle;
 ScoreFunction TestFunction;
+
+gsl_multifit_nlinear_workspace *TestWorkSpace = NULL;
 	
 	ExperimentalPoints = Load_Exp_File  (FileName, &ExpX, &ExpY, 1);
 	PeakCount = Peak_Find (&PeakList, 100.0, 0.003, ExpX, ExpY, ExperimentalPoints,0);
@@ -329,7 +333,8 @@ ScoreFunction TestFunction;
 	TestTriple.TransitionList[2] = FittingCatalog[450];
 	Find_Triples (&TestTriple, PeakList, 100.0, PeakCount);
 	printf ("Found %d %d %d experimental lines for the proposed triple\n",TestTriple.TriplesCount[0],TestTriple.TriplesCount[1],TestTriple.TriplesCount[2]);
-	Initialize_Triples_Fitter (&TestGSLBundle);
+	//Initialize_Triples_Fitter (&TestGSLBundle);
+	Initialize_Triples_Fitter_Split (&TestGSLBundle, &TestWorkSpace);
 	GuessConstants[0] = 3002.0;
 	GuessConstants[1] = 2004.0;
 	GuessConstants[2] = 998.0;
@@ -339,15 +344,16 @@ ScoreFunction TestFunction;
 	TestOptBundle.TransitionsGSL[1] = TestTriple.TransitionList[1];
 	TestOptBundle.TransitionsGSL[2] = TestTriple.TransitionList[2];
 	TestFunction = &DummyFunction;
-	Fit_Triples_Bundle (	TestTriple, 
+	Fit_Triples_Bundle_Split (	TestTriple, 
 							GuessConstants, 
 							&Results, 
 							&FittingCatalog, 
 							CatalogLines, 
 							&TestGSLBundle, 
 							TestOptBundle, 
+							TestWorkSpace,
 							TestFunction, 
-							0
+							0 
 						);
 
 }
@@ -389,14 +395,14 @@ int Load_ETau_File (char *FileName, double **X, double *FileDelta, int *StatePoi
 int i,StateLimit;
 FILE *FileHandle;
 char * line = NULL;
-size_t len = 0;
+char TempString[5000];	
 	
 	StateLimit = 10000;
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
 	if (FileHandle == NULL) goto Error;	
 	*StateCount = 0;
-	while (getline(&line, &len, FileHandle) > 0) (*StateCount)++;
+	while (fgets(TempString, 5000, FileHandle) > 0) (*StateCount)++;
 	rewind(FileHandle);
 	*X = malloc(StateLimit*(*StateCount)*sizeof(double));																
 	if (*X == NULL) goto Error;
@@ -425,14 +431,13 @@ int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *State
 int i,StateLimit;
 FILE *FileHandle;
 char * line = NULL;
-size_t len = 0;
-	
+char TempString[5000];	
 	StateLimit = 10000;
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
 	if (FileHandle == NULL) goto Error;	
 	*StateCount = 0;
-	while (getline(&line, &len, FileHandle) > 0) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
+	while (fgets(TempString, 5000, FileHandle) > 0) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
 	rewind(FileHandle);	//Rewind to the start of the file
 	(*StructToLoad).ETVals = malloc(StateLimit*(*StateCount)*sizeof(double));																
 	if ((*StructToLoad).ETVals == NULL) goto Error;
@@ -929,6 +934,23 @@ size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 
  	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
 }
 
+void Initialize_Triples_Fitter_Split (struct GSL_Bundle *FitBundle, gsl_multifit_nlinear_workspace **TestSpace)
+{
+size_t p = 3;	//These are the sizes of the parameters and data points
+size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 3 unknowns
+	FitBundle->fdf_params = gsl_multifit_nlinear_default_parameters();
+ 	FitBundle->fdf.f = OptFunc_gsl;
+   	FitBundle->fdf.df = NULL;   //Finite difference Jacobian because there is no general analytic version	
+   	FitBundle->fdf.fvv = NULL;	//No geodesic acceleration, early tests showed no real improvement in using it
+   	FitBundle->fdf.n = n;
+  	FitBundle->fdf.p = p;
+ 	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
+ 	FitBundle->T = gsl_multifit_nlinear_trust;
+ 	*TestSpace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
+ 	printf("%d\n",(*TestSpace)->f->size);
+ 	FitBundle->f = gsl_multifit_nlinear_residual(*TestSpace);
+}
+
 int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
 {
 int i,j,k,info,Count,Iterations,Wins,Errors;
@@ -947,8 +969,7 @@ gsl_vector_view x;
   	
   	FitResults = malloc(sizeof(double));
   	
-
-	printf("%f\n",FitBundle->fdf_params.factor_up);
+	
   	
   	
   	//Extract the transitions we'll use for the fit
@@ -1014,6 +1035,96 @@ gsl_vector_view x;
 	free(FitResults);
 	return 1;
 }
+
+int Fit_Triples_Bundle_Split (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, gsl_multifit_nlinear_workspace *Workspace, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
+{
+int i,j,k,info,Count,Iterations,Wins,Errors;
+const double xtol = 1e-8;
+const double gtol = 1e-8;
+const double ftol = 1e-1;
+const size_t p = 3;
+struct Transition Transitions[3];
+gsl_vector *Final;
+gsl_vector_view x;
+  	
+  	
+  	double Temp;
+  	x = gsl_vector_view_array (Guess, p);							//Set the guess	
+  	
+  	FitResults = malloc(sizeof(double));
+  	
+	
+  	
+  	
+  	//Extract the transitions we'll use for the fit
+  	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
+  	Transitions[0].Lower = TransitionstoFit.TransitionList[0].Lower;
+  	Transitions[1].Upper = TransitionstoFit.TransitionList[1].Upper;
+  	Transitions[1].Lower = TransitionstoFit.TransitionList[1].Lower;
+	Transitions[2].Upper = TransitionstoFit.TransitionList[2].Upper;
+  	Transitions[2].Lower = TransitionstoFit.TransitionList[2].Lower;  
+  	//printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
+  	Wins = 0;		//Track the total number of wins for the current scoring system
+  	Count = 0;		//Track the total number of constants (A+B+C) in the fit results
+  	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
+  	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
+  	double MyConstants[3];
+  	
+	
+  	  	
+  	FitBundle->fdf.params = &MyOpt_Bundle;
+  	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
+  		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
+  			for (k=0;k<TransitionstoFit.TriplesCount[2];k++) {
+  				//This is why the transitions were extracted. We set the 3 transition's frequencies to those of the triple we're working on and hand it off to the fitter
+  				
+  				Transitions[0].Frequency = TransitionstoFit.TriplesList[i];				
+  				Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
+  				Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
+				FitBundle->fdf.params = &MyOpt_Bundle;															//Set the parameters for this run
+				
+				
+				
+				//Current problem code for ctypes
+   				//printf ("%d\n",FitBundle->fdf.n);
+   				gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
+				
+				FitBundle->f = gsl_multifit_nlinear_residual(Workspace);								//compute initial cost function
+  				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, Workspace);		//solve the system with a maximum of 20 iterations
+  				Iterations += gsl_multifit_nlinear_niter (Workspace); 	//Track the iterations
+  				Final = gsl_multifit_nlinear_position(Workspace);		//Snag the results
+  				if (gsl_multifit_nlinear_niter (Workspace) == 50) {		//Check for an error, currently only considering non-convergence
+  					printf ("Error: Unconverged Fit: %.4f %.4f %.4f\n",Transitions[0].Frequency,Transitions[1].Frequency,Transitions[2].Frequency);
+  					Errors++;
+  				}
+   				//(*FitResults)[Count] = gsl_vector_get(Final, 0);	//Get the final A
+  				Temp = gsl_vector_get(Final, 0);	//Get the final A
+  				//MyConstants[0] = (*FitResults)[Count];				//Update the constants
+  				MyConstants[0] = Temp;
+  				Count++;											//Track the number of items in FitResults
+  				//(*FitResults)[Count] = gsl_vector_get(Final, 1);	
+  				Temp = gsl_vector_get(Final, 1);
+  				//MyConstants[1] = (*FitResults)[Count];
+  				MyConstants[1] = Temp;
+  				Count++;
+  				//(*FitResults)[Count] = gsl_vector_get(Final, 2);
+  				//MyConstants[2] = (*FitResults)[Count];
+  				Temp = gsl_vector_get(Final, 2);
+  				MyConstants[2] = Temp;
+  				Count++;
+  				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle.ETGSL,MyOpt_Bundle.MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
+  				Sort_Catalog (*MyFittingCatalog,CatalogLines,0,0);					//Catalog is not necessarily sorted, so we sort it
+				TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
+  			} 
+  		} 
+  	}
+	printf ("%d\n",Wins);
+  	printf ("%e %e %e\n",MyConstants[0],MyConstants[1],MyConstants[2]);
+  	printf ("%i average iterations, %i Errors\n",Iterations/(TransitionstoFit.TriplesCount[0]*TransitionstoFit.TriplesCount[1]*TransitionstoFit.TriplesCount[2]),Errors);
+	free(FitResults);
+	return 1;
+}
+
 
 int OptFunc_gsl (const gsl_vector *x, void *params, gsl_vector *f)
 {
