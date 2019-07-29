@@ -918,15 +918,15 @@ void Initialize_Triples_Fitter (struct GSL_Bundle *FitBundle)
 size_t p = 3;	//These are the sizes of the parameters and data points
 size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 3 unknowns
 	FitBundle->fdf_params = gsl_multifit_nlinear_default_parameters();
-	FitBundle->fdf.f = OptFunc_gsl;
-  	FitBundle->fdf.df = NULL;   //Finite difference Jacobian because there is no general analytic version	
-  	FitBundle->fdf.fvv = NULL;	//No geodesic acceleration, early tests showed no real improvement in using it
-//   	FitBundle->fdf.n = n;
-//  FitBundle->fdf.p = p;
-// 	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
-// 	FitBundle->T = gsl_multifit_nlinear_trust;
-// 	FitBundle->Workspace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
-// 	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
+ 	FitBundle->fdf.f = OptFunc_gsl;
+   	FitBundle->fdf.df = NULL;   //Finite difference Jacobian because there is no general analytic version	
+   	FitBundle->fdf.fvv = NULL;	//No geodesic acceleration, early tests showed no real improvement in using it
+   	FitBundle->fdf.n = n;
+  	FitBundle->fdf.p = p;
+ 	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
+ 	FitBundle->T = gsl_multifit_nlinear_trust;
+ 	FitBundle->Workspace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
+ 	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
 }
 
 int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
@@ -940,8 +940,17 @@ struct Transition Transitions[3];
 gsl_vector *Final;
 gsl_vector_view x;
   	
+  	printf("%d\n",CatalogLines);
+  	
   	double Temp;
   	x = gsl_vector_view_array (Guess, p);							//Set the guess	
+  	
+  	FitResults = malloc(sizeof(double));
+  	
+
+	printf("%f\n",FitBundle->fdf_params.factor_up);
+  	
+  	
   	//Extract the transitions we'll use for the fit
   	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
   	Transitions[0].Lower = TransitionstoFit.TransitionList[0].Lower;
@@ -955,7 +964,7 @@ gsl_vector_view x;
   	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
   	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
   	double MyConstants[3];
-  	//printf ("%f\n",MyOpt_Bundle.ETGSL.Delta);
+  	
   	FitBundle->fdf.params = &MyOpt_Bundle;
   	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
   		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
@@ -966,7 +975,10 @@ gsl_vector_view x;
   				Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
   				Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
 				FitBundle->fdf.params = &MyOpt_Bundle;															//Set the parameters for this run
+				
+				//Current problem code for ctypes
    				gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
+				
 				FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
   				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 20 iterations
   				Iterations += gsl_multifit_nlinear_niter (FitBundle->Workspace); 	//Track the iterations
@@ -999,6 +1011,7 @@ gsl_vector_view x;
 	printf ("%d\n",Wins);
   	printf ("%e %e %e\n",MyConstants[0],MyConstants[1],MyConstants[2]);
   	printf ("%i average iterations, %i Errors\n",Iterations/(TransitionstoFit.TriplesCount[0]*TransitionstoFit.TriplesCount[1]*TransitionstoFit.TriplesCount[2]),Errors);
+	free(FitResults);
 	return 1;
 }
 
