@@ -2,8 +2,241 @@ import os
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from ctypes import c_uint, c_int, c_double, create_string_buffer, CDLL, POINTER, byref, Structure
-from GSL_CTYPES import *
+from ctypes import c_uint, c_int, c_double, create_string_buffer, CDLL, POINTER, byref, Structure, c_size_t, CFUNCTYPE, c_void_p, c_char
+#from GSL_CTYPES import *
+
+
+###Level 0 structures
+class GSL_block(Structure):
+	_fields_=	[	
+		("size",c_size_t),
+		("data",POINTER(c_double)),
+		]
+				
+class GSL_vector(Structure):
+	_fields_=	[	
+		("size",	c_size_t),
+		("stride",	c_size_t),
+		("data",	POINTER(c_double)),
+		("block",	POINTER(GSL_block)),
+		("owner",	c_int)
+		]
+
+class GSL_matrix(Structure):
+	_fields_=	[	
+		("size1",	c_size_t),
+		("size2",	c_size_t),
+		("tda",		c_size_t),
+		("data",	POINTER(c_double)),
+		("block",	POINTER(GSL_block)),
+		("owner",	c_int)
+		]
+
+###Level 1 structures
+###Function pointer types for Level 1 gsl structures
+free_type = CFUNCTYPE(	c_void_p,
+						c_void_p
+					)
+
+f_type = CFUNCTYPE(	c_int,
+					POINTER(GSL_vector),
+					c_void_p,
+					POINTER(GSL_vector)
+					)
+
+df_type = CFUNCTYPE(c_int,
+					POINTER(GSL_vector),
+					c_void_p,
+					POINTER(GSL_matrix)
+					)
+					
+fvv_type = CFUNCTYPE(	c_int, 
+						POINTER(GSL_vector), 
+						POINTER(GSL_vector), 
+						POINTER(c_void_p),
+						POINTER(GSL_vector)
+					)
+
+trs_alloc_type = CFUNCTYPE	(	c_void_p,
+							c_void_p,
+							c_size_t,
+							c_size_t
+						)
+
+trs_init_type = CFUNCTYPE(	c_int,
+							c_void_p,
+							c_void_p
+						)
+
+preloop_type = CFUNCTYPE(	c_int,
+							c_void_p,
+							c_void_p
+						)
+
+step_type = CFUNCTYPE	(	c_int,
+							c_void_p,
+							c_double,POINTER(GSL_vector),
+							c_void_p
+						)
+
+preduction_type = CFUNCTYPE(c_int,
+							c_void_p,
+							POINTER(GSL_vector),
+							c_double,
+							c_void_p
+							)
+
+scale_init_type = CFUNCTYPE(c_int,
+							POINTER(GSL_matrix),
+							POINTER(GSL_vector)
+							)
+
+scale_update_type = CFUNCTYPE(	c_int,
+								POINTER(GSL_matrix),
+								POINTER(GSL_vector)
+							)
+
+solver_alloc_type = CFUNCTYPE	(	c_void_p,
+							c_void_p,
+							c_size_t,
+							c_size_t
+						)
+
+solver_init_type = CFUNCTYPE(	c_int,
+								c_void_p,
+								c_void_p
+							)
+
+solver_presolve_type = CFUNCTYPE(	c_int,
+									c_double,
+									c_void_p,
+									c_void_p
+								)
+
+solver_rcond_type = CFUNCTYPE(	c_int,
+								c_double,
+								c_void_p
+							)
+
+class GSL_fdf(Structure):
+	_fields_=	[	
+		("f",		f_type),
+		("df",		df_type),
+		("fvv",		fvv_type),
+		("n",		c_size_t),
+		("p",		c_size_t),
+		("params",	c_void_p),
+		("nevalf",	c_size_t),
+		("nevaldf",	c_size_t),
+		("nevalfvv",c_size_t)
+ 		]
+
+class GSL_nlinear_trs(Structure):
+	_fields_=	[	
+		("name",		POINTER(c_char)),
+		("alloc",		trs_alloc_type),
+		("init",		trs_init_type),
+		("preloop",		preloop_type),
+		("step",		step_type),
+		("preduction",	preduction_type),
+		("free",		free_type)
+ 		]
+
+class GSL_nlinear_scale(Structure):
+	_fields_=	[	
+		("name",	POINTER(c_char)),
+		("init",	scale_init_type),
+		("update",	scale_update_type)
+ 		]
+
+class GSL_nlinear_solver(Structure):
+	_fields_=	[	
+		("name",	POINTER(c_char)),
+		("alloc",	solver_alloc_type),
+		("init",	solver_init_type),
+		("presolve",solver_presolve_type),
+		("rcond",	solver_rcond_type),
+		("free",	free_type),
+ 		]
+
+###Level 2 structures
+class GSL_multifit_nlinear_parameters(Structure):
+	_fields_=	[	
+		("trs",			POINTER(GSL_nlinear_trs)),
+		("scale",		POINTER(GSL_nlinear_scale)),
+		("solver",		POINTER(GSL_nlinear_solver)),
+		("fdtype",		c_int),
+		("factor_up",	c_double),
+		("factor_down",	c_double),
+		("avmax",		c_double),
+		("h_df",		c_double),
+		("h_fvv",		c_double),
+ 		]
+
+###Function pointer types for Level 2 gsl structures
+nlinear_alloc_type = CFUNCTYPE	(	c_void_p,
+									POINTER(GSL_multifit_nlinear_parameters),
+									c_size_t,
+									c_size_t
+								)
+
+nlinear_init_type = CFUNCTYPE	(	c_int,
+									c_void_p,
+									POINTER(GSL_vector),
+									POINTER(GSL_fdf),
+									POINTER(GSL_vector),
+									POINTER(GSL_vector),
+									POINTER(GSL_matrix),
+									POINTER(GSL_vector)
+								)
+
+nlinear_iterate_type = CFUNCTYPE(	c_int,
+									c_void_p,
+									POINTER(GSL_vector),
+									POINTER(GSL_fdf),
+									POINTER(GSL_vector),
+									POINTER(GSL_vector),
+									POINTER(GSL_matrix),
+									POINTER(GSL_vector),
+									POINTER(GSL_vector)
+								)
+
+nlinear_type_rcond_type = CFUNCTYPE(c_int,
+									c_double,
+									c_void_p
+									)
+
+nlinear_avratio_type = CFUNCTYPE(	c_double,
+									c_void_p
+								)
+
+class GSL_multifit_nlinear_type(Structure):
+	_fields_=	[	
+		("name",	POINTER(c_char)),
+		("alloc",	nlinear_alloc_type),
+		("init",	nlinear_init_type),
+		("iterate",	nlinear_iterate_type),
+		("rcond",	nlinear_type_rcond_type),
+		("avratio",	nlinear_avratio_type),
+		("free",	free_type)
+ 		]
+
+
+class GSL_multifit_nlinear_workspace(Structure):
+	_fields_=	[	
+		("type",			POINTER(GSL_multifit_nlinear_type)),
+		("fdf",				POINTER(GSL_fdf)),
+		("x",				POINTER(GSL_vector)),
+		("f",				POINTER(GSL_vector)),
+		("dx",				POINTER(GSL_vector)),
+		("g",				POINTER(GSL_vector)),
+		("J",				POINTER(GSL_matrix)),
+		("sqrt_wts_work",	POINTER(GSL_vector)),
+		("sqrt_wts",		POINTER(GSL_vector)),
+		("niter",			c_size_t),
+		("params",			GSL_multifit_nlinear_parameters),
+		("state",			c_void_p)
+ 		]	
 
 ###Structure definition for python
 class Level(Structure):
@@ -50,9 +283,9 @@ class GSL_Bundle(Structure):
     _fields_ = [
         ("T", 			POINTER(GSL_multifit_nlinear_type)),
         ("Workspace", 	POINTER(GSL_multifit_nlinear_workspace)),
-        ("fdf", 		POINTER(GSL_fdf)),
+        ("fdf", 		GSL_fdf),
         ("f", 			POINTER(GSL_vector)),
-        ("fdf_params", 	POINTER(GSL_multifit_nlinear_parameters)),
+        ("fdf_params", 	GSL_multifit_nlinear_parameters),
         ]
 
 def Score_Fit (Catalog,Scoring_Parameters):
@@ -108,6 +341,7 @@ LineCount = c_int(0)
 FitResults = POINTER(c_double)()
 Scoring_Parameters = c_void_p(0)
 
+
 ##C integer type initialized to 0
 Statecount = c_int(0)
 Verbose = c_int(0)	#0 for a non verbose program
@@ -151,33 +385,54 @@ Calculate_State_Energies (MyLevels, MyCatalog, CatalogStateCount)
 
 ###Example Triples fit
 Verbose.value = 0
+
 ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
 										byref(ExpX),
 										byref(ExpY),
 										Verbose
 									)
 
-Initialize_Triples_Fitter (byref(MyGSLBundle)) 
-print (MyET.Delta)
+Initialize_Triples_Fitter (byref(MyGSLBundle))
+
+
 
 LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints,Verbose)
 MyTriple.TransitionList[0] = MyCatalog[400]
 MyTriple.TransitionList[1] = MyCatalog[500]
 MyTriple.TransitionList[2] = MyCatalog[450]
+##Currently redundantly passing the transitions to fit twice, need to address this in the code
+FitTransitions[0] = MyTriple.TransitionList[0]
+FitTransitions[1] = MyTriple.TransitionList[1]
+FitTransitions[2] = MyTriple.TransitionList[2]
 Find_Triples (byref(MyTriple),LineList,Window,LineCount)
+
+
 ###Correct till here
 
 
 MyOptBundle.ETGSL = MyET
 MyOptBundle.MyDictionary = MyLevels
 MyOptBundle.TransitionsGSL = FitTransitions
+
+##Checking objects are set correctly going into the triples fit
+# print ("%f %f %f" %(Constants[0], Constants[1], Constants[2]))	#Constants correctly passed to C
+#print ("%f %d" % (MyOptBundle.ETGSL.Delta,MyOptBundle.ETGSL.StatePoints))
+# print ("%d %d %d" % (MyOptBundle.MyDictionary[400].J,MyOptBundle.MyDictionary[500].Ka,MyOptBundle.MyDictionary[450].Kc))
+# print ("%d" % (MyOptBundle.TransitionsGSL[2].Upper))
+# 
+# print ("%d %d %d" % (MyTriple.TriplesCount[0],MyTriple.TriplesCount[1],MyTriple.TriplesCount[2]))
+# print ("%f %f %f" % (MyTriple.TriplesList[10],MyTriple.TriplesList[100],MyTriple.TriplesList[67]))
+
+# print (CatalogStateCount) #CatalogStateCount
+
+
 Constants = ConstantsType (3000.0,2000.0,1000.0)
 Fit_Triples_Bundle 	(	MyTriple,
  						Constants,
- 						FitResults,
+ 						byref(FitResults),
  						byref(MyCatalog),
  						CatalogStateCount,
- 						MyGSLBundle,
+ 						byref(MyGSLBundle),
  						MyOptBundle,
  						#CurrentScoringFunction,
 # 						#Scoring_Parameters
