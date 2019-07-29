@@ -151,6 +151,7 @@ double *EnergyLevels,*IntensityVals;
 					BaseDict
 			);
 	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+
 	
 	Test_Triples ("../tests/ft2494.txt",BaseCatalog,BaseDict,CatalogTransitions,ETStruct);
 	
@@ -375,7 +376,7 @@ int TempPoints;
 	printf ("Catalog Loaded\n");
 
 	//Load all of our ET values into the array and check that it worked, using static external files cause I'm lazy
-	if (Load_ETau_File ("J0_25_dk3.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
+	if (Load_ETau_File ("etau.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
 	else goto Error;
 	if (*DictLevels != TempPoints) {
 		printf ("Warning: mismatch between number of dictionary states(%d) and number of states in the eigenvalue file (%d)\n",*DictLevels,TempPoints);
@@ -394,7 +395,6 @@ int Load_ETau_File (char *FileName, double **X, double *FileDelta, int *StatePoi
 //ET is preallocated based on the global variables, there are no checks to see if the file matches until later
 int i,StateLimit;
 FILE *FileHandle;
-char * line = NULL;
 char TempString[5000];	
 	
 	StateLimit = 10000;
@@ -402,7 +402,7 @@ char TempString[5000];
 	FileHandle = fopen (FileName, "r");									//Open file read only
 	if (FileHandle == NULL) goto Error;	
 	*StateCount = 0;
-	while (fgets(TempString, 5000, FileHandle) > 0) (*StateCount)++;
+	while (fgets(TempString, 5000, FileHandle) != NULL) (*StateCount)++;
 	rewind(FileHandle);
 	*X = malloc(StateLimit*(*StateCount)*sizeof(double));																
 	if (*X == NULL) goto Error;
@@ -430,14 +430,13 @@ int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *State
 //This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
 int i,StateLimit;
 FILE *FileHandle;
-char * line = NULL;
 char TempString[5000];	
 	StateLimit = 10000;
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
 	if (FileHandle == NULL) goto Error;	
 	*StateCount = 0;
-	while (fgets(TempString, 5000, FileHandle) > 0) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
+	while (fgets(TempString, 5000, FileHandle) != NULL) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
 	rewind(FileHandle);	//Rewind to the start of the file
 	(*StructToLoad).ETVals = malloc(StateLimit*(*StateCount)*sizeof(double));																
 	if ((*StructToLoad).ETVals == NULL) goto Error;
@@ -947,7 +946,7 @@ size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 
  	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
  	FitBundle->T = gsl_multifit_nlinear_trust;
  	*TestSpace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
- 	printf("%d\n",(*TestSpace)->f->size);
+ 	printf("f size: %d\n",(*TestSpace)->f->size);
  	FitBundle->f = gsl_multifit_nlinear_residual(*TestSpace);
 }
 
@@ -1070,6 +1069,7 @@ gsl_vector_view x;
   	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
   	double MyConstants[3];
   	
+
 	
   	  	
   	FitBundle->fdf.params = &MyOpt_Bundle;
