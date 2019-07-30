@@ -200,7 +200,7 @@ MyOptBundle.TransitionsGSL = FitTransitions
 
 # print (CatalogStateCount) #CatalogStateCount
 
-Constants = ConstantsType (3000.0,2000.0,1000.0)
+Constants = ConstantsType (5002.0,3004.0,1998.0)
 Fit_Triples_Bundle	(			MyTriple,
  								Constants,
  								byref(FitResults),
