@@ -123,7 +123,6 @@ int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/
 void Test_Triples (char *, struct Transition *, struct Level *, int /*CatalogLines*/, struct ETauStruct /*FittingETStruct*/);
 double DummyFunction (struct Transition */*MyCatalog*/, void */*Data*/);
 
-int gsl_multifit_nlinear_winit_PBC (const gsl_vector *, const gsl_vector *,gsl_multifit_nlinear_fdf *,  gsl_multifit_nlinear_workspace *);
 
 int main (int argc, char *argv[])  
 {
@@ -333,9 +332,9 @@ ScoreFunction TestFunction;
 	Find_Triples (&TestTriple, PeakList, 100.0, PeakCount);
 	printf ("Found %d %d %d experimental lines for the proposed triple\n",TestTriple.TriplesCount[0],TestTriple.TriplesCount[1],TestTriple.TriplesCount[2]);
 	Initialize_Triples_Fitter (&TestGSLBundle);
-	GuessConstants[0] = 3002.0;
-	GuessConstants[1] = 2004.0;
-	GuessConstants[2] = 998.0;
+	GuessConstants[0] = 5002.0;
+	GuessConstants[1] = 3004.0;
+	GuessConstants[2] = 1998.0;
 	TestOptBundle.ETGSL = FittingETStruct;
 	TestOptBundle.MyDictionary = FittingDictionary;
 	TestOptBundle.TransitionsGSL[0] = TestTriple.TransitionList[0];
@@ -964,9 +963,14 @@ gsl_vector_view x;
   			for (k=0;k<TransitionstoFit.TriplesCount[2];k++) {
   				//This is why the transitions were extracted. We set the 3 transition's frequencies to those of the triple we're working on and hand it off to the fitter
   				
-  				Transitions[0].Frequency = TransitionstoFit.TriplesList[i];				
-  				Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
-  				Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
+  				//Transitions[0].Frequency = TransitionstoFit.TriplesList[i];				
+  				//Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
+  				//Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
+				MyOpt_Bundle.TransitionsGSL[0].Frequency = TransitionstoFit.TriplesList[i];
+				MyOpt_Bundle.TransitionsGSL[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
+				MyOpt_Bundle.TransitionsGSL[2].Frequency =  TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
+				
+				printf ("%f %f %f\n",MyOpt_Bundle.TransitionsGSL[0].Frequency,MyOpt_Bundle.TransitionsGSL[1].Frequency,MyOpt_Bundle.TransitionsGSL[2].Frequency);
 				FitBundle->fdf.params = &MyOpt_Bundle;															//Set the parameters for this run
 				
 				//Current problem code for ctypes
@@ -1156,39 +1160,6 @@ double DummyFunction (struct Transition *MyCatalog, void *Data)
 	return 1.0;
 }
 
-
-int gsl_multifit_nlinear_winit_PBC (const gsl_vector * x, const gsl_vector * wts,gsl_multifit_nlinear_fdf * fdf,  gsl_multifit_nlinear_workspace * w)
-{
-	const size_t n = w->f->size;
-	
-  	if (n != fdf->n) {
-      	GSL_ERROR ("function size does not match workspace", GSL_EBADLEN);	
-    } else if (w->x->size != x->size) {
-    	GSL_ERROR ("vector length does not match workspace", GSL_EBADLEN);
-    } else if (wts != NULL && n != wts->size) {
-      	GSL_ERROR ("weight vector length does not match workspace", GSL_EBADLEN);
-    } else {
-		size_t i;
-		
-     	/* initialize counters for function and Jacobian evaluations */
-      	fdf->nevalf = 0;
-      	fdf->nevaldf = 0;
-      	fdf->nevalfvv = 0;
-      	w->fdf = fdf;
-      	gsl_vector_memcpy(w->x, x);
-      	w->niter = 0;
-      	if (wts) {
-      		w->sqrt_wts = w->sqrt_wts_work;
-			for (i = 0; i < n; ++i) {
-				double wi = gsl_vector_get(wts, i);
-              	gsl_vector_set(w->sqrt_wts, i, sqrt(wi));
-            }
-    	} else {	
-    		w->sqrt_wts = NULL;	
-    	}
-      	return (w->type->init) (w->state, w->sqrt_wts, w->fdf, w->x, w->f, w->J, w->g);		//This is the problem line
-	}
-}
 
 
 
