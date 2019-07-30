@@ -943,6 +943,7 @@ gsl_vector_view x;
   	x = gsl_vector_view_array (Guess, p);							//Set the guess	
   	FitResults = malloc(sizeof(double));
   
+  	
   	//Extract the transitions we'll use for the fit
   	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
   	Transitions[0].Lower = TransitionstoFit.TransitionList[0].Lower;
@@ -971,9 +972,9 @@ gsl_vector_view x;
 				//Current problem code for ctypes
    				gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
 				
-				
 				FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
   				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 20 iterations
+  				
   				Iterations += gsl_multifit_nlinear_niter (FitBundle->Workspace); 	//Track the iterations
   				Final = gsl_multifit_nlinear_position(FitBundle->Workspace);		//Snag the results
   				if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 50) {		//Check for an error, currently only considering non-convergence
@@ -996,7 +997,7 @@ gsl_vector_view x;
   			} 
   		} 
   	}
-	//printf ("%d\n",Wins);
+	printf ("%d\n",Count);
   	printf ("%e %e %e\n",MyConstants[0],MyConstants[1],MyConstants[2]);
   	printf ("%i average iterations, %i Errors\n",Iterations/(TransitionstoFit.TriplesCount[0]*TransitionstoFit.TriplesCount[1]*TransitionstoFit.TriplesCount[2]),Errors);
 	free(FitResults);
