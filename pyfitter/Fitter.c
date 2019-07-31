@@ -103,8 +103,8 @@ int Catalog_Comparator_Intensity (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Upper (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
-void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/);
-void Calculate_Intensities (struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, struct Level */*MyDictionary*/, double /*T*/, double */*Dipoles*/);
+void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, int /*Verbose*/);
+void Calculate_Intensities (struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, struct Level */*MyDictionary*/, double /*T*/, double */*Dipoles*/, int /*Verbose*/);
 
 //Triples fitting functions
 int Peak_Find (double **/*LineList*/, double /*Max*/, double /*Min*/, double */*X*/, double */*Y*/, int /*ArraySize*/, int /*Verbose*/);
@@ -1066,7 +1066,7 @@ double rcond;
 	fprintf (stderr, "iter %2zu: A = %.4f, B = %.4f, C = %.4f, cond(J) = %8.4f, |f(x)| = %.4f\n", iter, gsl_vector_get(x, 0), gsl_vector_get(x, 1), gsl_vector_get(x, 2), 1.0 / rcond, gsl_blas_dnrm2(f));
 }
 
-void Calculate_State_Energies (struct Level *MyCatalog, struct Transition *SourceCatalog, int CatalogTransitions)
+void Calculate_State_Energies (struct Level *MyCatalog, struct Transition *SourceCatalog, int CatalogTransitions, int Verbose)
 {
 //Function to get the energies of levels in a catalog
 int i;
@@ -1074,16 +1074,16 @@ int i;
 	for (i=0;i<CatalogTransitions;i++) {
 		(MyCatalog[SourceCatalog[i].Upper]).Energy = (MyCatalog[SourceCatalog[i].Lower]).Energy+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
 		(MyCatalog[SourceCatalog[i].Upper]).Energy *= 4.8E-5;
-		//printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (*Energies)[SourceCatalog[i].Upper], SourceCatalog[i].Upper, SourceCatalog[i].Lower);
+		if (Verbose) printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (MyCatalog[SourceCatalog[i].Upper]).Energy, SourceCatalog[i].Upper, SourceCatalog[i].Lower);
 	}
 }
 
-void Calculate_Intensities (struct Transition *SourceCatalog, int CatalogTransitions, struct Level *MyDictionary, double T, double *Dipoles)
+void Calculate_Intensities (struct Transition *SourceCatalog, int CatalogTransitions, struct Level *MyDictionary, double T, double *Dipoles, int Verbose)
 {
 int i;
 	for (i=0;i<CatalogTransitions;i++) {
 		(SourceCatalog[i]).Intensity = Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
-		//printf ("%e %f %f\n",(*Intensity)[i],Energies[SourceCatalog[i].Lower],Energies[SourceCatalog[i].Upper]);
+		if (Verbose) printf ("%e %f %f\n",(SourceCatalog[i]).Intensity,(MyDictionary[SourceCatalog[i].Lower]).Energy,(MyDictionary[SourceCatalog[i].Upper]).Energy);
 	}
 }
 
