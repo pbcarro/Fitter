@@ -271,8 +271,8 @@ double *EnergyLevels,*IntensityVals;
 	);
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Upper);
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Lower);
-	Calculate_State_Energies (BaseDict, SortedCatalog, CatalogTransitions);
-	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 3.0, Dipoles);	
+	Calculate_State_Energies (BaseDict, SortedCatalog, CatalogTransitions,0);
+	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 3.0, Dipoles,0);	
 
 	
 	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
