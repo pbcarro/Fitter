@@ -42,6 +42,8 @@ double Brute_Force_ConstantsArray (double * /*ConstantsArray*/, int /*ConstantsS
 //Scoring Functions
 int CountWins (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
 double CountWins_Exp (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
+double CountWins_Exp (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
+
 
 void insertionSort_Saves(struct MultiSave * /*SavestoSort*/, int /*SaveCount*/);
 
@@ -223,6 +225,28 @@ double Wins;
 		}
 	}
 	return Wins;
+}
+
+double CountWins_No_Double (double *ExperimentalFrequencies, int ExperimentalLines, struct Transition *SourceCatalog, int CatalogTransitions, double Tolerance) 
+{
+double Wins,LastWin,LastExp;
+int i,j;
+	Wins = 0.0;
+	LastWin = 0.0;
+	LastExp = 0.0;
+	for (j=0;j<ExperimentalLines;j++) {
+		for (i=0;i<CatalogTransitions;i++) {
+			if (fabs(ExperimentalFrequencies[j]-SourceCatalog[i].Frequency) < Tolerance) {
+				if ((fabs(LastWin-SourceCatalog[i].Frequency) > Tolerance) && (fabs(LastExp-ExperimentalFrequencies[j]) > Tolerance)) {
+					Wins++;
+					LastWin = SourceCatalog[i].Frequency;
+					LastExp = ExperimentalFrequencies[j];
+					break;
+				}
+			}
+		}
+	}
+	return  Wins;
 }
 
 //General Functions
