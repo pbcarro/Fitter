@@ -42,10 +42,12 @@ double Brute_Force_Top_Results (double /*ConstantsStart*/, double /*ConstantsSto
 //Scoring Functions
 int CountWins (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
 double CountWins_Exp (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
-double CountWins_Exp (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
+double CountWins_No_Double (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
+double CountWins_No_Double_Exp (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
 
 
 void insertionSort_Saves(struct MultiSave * /*SavestoSort*/, int /*SaveCount*/);
+int Load_Exp_Lines  (char * /*FileName*/, double ** /*X*/, int /*Verbose*/);
 
 //=============Functions========================
 double Brute_Force (double CostantsStart, double CosntantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod)
@@ -175,6 +177,11 @@ double Constants[3];
 							Wins = CountWins (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
 						case 2:
 							Wins = CountWins_Exp (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);	
+						case 3:
+							Wins = CountWins_No_Double (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+						case 4:
+							Wins = CountWins_No_Double_Exp (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+
 					}
 					if (Wins > Saves[SaveCount-1].Score) {
 						Saves[SaveCount-1].Score = Wins;
@@ -289,7 +296,7 @@ int i, j;
     } 
 } 
 
-int Load_Exp_File  (char *FileName, double **X, int Verbose)
+int Load_Exp_Lines  (char *FileName, double **X, int Verbose)
 {
 //Load the experimental data file and store it as an X-Y array
 //We do not handle headers at all, any header on the file will ruin this function, probably
