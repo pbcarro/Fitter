@@ -289,6 +289,36 @@ int i, j;
     } 
 } 
 
-
+int Load_Exp_File  (char *FileName, double **X, int Verbose)
+{
+//Load the experimental data file and store it as an X-Y array
+//We do not handle headers at all, any header on the file will ruin this function, probably
+int i,FileLimit;
+FILE *FileHandle;
+	FileHandle = NULL;
+	FileHandle = fopen (FileName, "r");									//Open file read only
+	if (FileHandle == NULL) goto Error;									//Confrim file opened without error															//Set line count to 0
+	FileLimit = 200000;
+	i = 0;
+	*X = malloc(FileLimit*sizeof(double));														
+	while (fscanf (FileHandle, "%lf", &(*X)[i]) == 1) {
+		i++;
+		if (i >= (FileLimit-1)) {
+			if (i > 100000000) {
+				printf ("Error: Experimental file exceeds 10 million points, dial that down a bit\n");
+				goto Error;
+			}
+			FileLimit += 200000;
+			*X = realloc (*X,FileLimit*sizeof(double));
+		}
+	}
+	fclose (FileHandle);												//Not currently checking to see if fclose works, shouldnt affect file load and theres not much to be done if there is an error, the file stream should close when the program ends so hopefully this wont mater														//i is incremented at the end when the EOF occurs which doesnt represent real data so it gets fixed 								
+	*X = realloc(*X,i*sizeof(double));
+	if (Verbose) printf ("Loaded %d lines\n",i);
+	return i;
+Error:
+	printf ("Error Loading file %s\n",FileName);
+	return 0;
+}
 
 
