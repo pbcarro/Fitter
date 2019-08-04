@@ -37,7 +37,7 @@ struct MultiSave
 //Brute Force Functions
 double Brute_Force (double /*CostantsStart*/, double /*CosntantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
 double Brute_Force_ConstantsArray (double * /*ConstantsArray*/, int /*ConstantsSize*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
-
+double Brute_Force_Top_Results (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/, int /*SaveCount*/, struct MultiSave * /*Saves*/);
 
 //Scoring Functions
 int CountWins (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
@@ -239,6 +239,28 @@ int i,j;
 			if (fabs(ExperimentalFrequencies[j]-SourceCatalog[i].Frequency) < Tolerance) {
 				if ((fabs(LastWin-SourceCatalog[i].Frequency) > Tolerance) && (fabs(LastExp-ExperimentalFrequencies[j]) > Tolerance)) {
 					Wins++;
+					LastWin = SourceCatalog[i].Frequency;
+					LastExp = ExperimentalFrequencies[j];
+					break;
+				}
+			}
+		}
+	}
+	return  Wins;
+}
+
+double CountWins_No_Double_Exp (double *ExperimentalFrequencies, int ExperimentalLines, struct Transition *SourceCatalog, int CatalogTransitions, double Tolerance) 
+{
+double Wins,LastWin,LastExp;
+int i,j;
+	Wins = 0.0;
+	LastWin = 0.0;
+	LastExp = 0.0;
+	for (j=0;j<ExperimentalLines;j++) {
+		for (i=0;i<CatalogTransitions;i++) {
+			if (fabs(ExperimentalFrequencies[j]-SourceCatalog[i].Frequency) < Tolerance) {
+				if ((fabs(LastWin-SourceCatalog[i].Frequency) > Tolerance) && (fabs(LastExp-ExperimentalFrequencies[j]) > Tolerance)) {
+					Wins += exp(-fabs(ExperimentalFrequencies[j]-SourceCatalog[i].Frequency));
 					LastWin = SourceCatalog[i].Frequency;
 					LastExp = ExperimentalFrequencies[j];
 					break;
