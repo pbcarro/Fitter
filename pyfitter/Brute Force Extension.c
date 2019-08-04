@@ -48,6 +48,7 @@ double CountWins_No_Double_Exp (double * /*ExperimentalFrequencies*/, int /*Expe
 
 void insertionSort_Saves(struct MultiSave * /*SavestoSort*/, int /*SaveCount*/);
 int Load_Exp_Lines  (char * /*FileName*/, double ** /*X*/, int /*Verbose*/);
+int Allocate_MultiSave (int /*Size*/, struct MultiSave ** /*SavestoAllocate*/);
 
 //=============Functions========================
 double Brute_Force (double CostantsStart, double CosntantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod)
@@ -183,11 +184,11 @@ double Constants[3];
 							Wins = CountWins_No_Double_Exp (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
 
 					}
-					if (Wins > Saves[SaveCount-1].Score) {
-						Saves[SaveCount-1].Score = Wins;
-						Saves[SaveCount-1].A = CurrentA;
-						Saves[SaveCount-1].B = CurrentB;
-						Saves[SaveCount-1].C = CurrentC;
+					if (Wins > Saves[0].Score) {
+						Saves[0].Score = Wins;
+						Saves[0].A = CurrentA;
+						Saves[0].B = CurrentB;
+						Saves[0].C = CurrentC;
 						insertionSort_Saves(Saves, SaveCount); 
 					}
 					Count+=1.0;
@@ -326,6 +327,15 @@ FILE *FileHandle;
 Error:
 	printf ("Error Loading file %s\n",FileName);
 	return 0;
+}
+
+int Allocate_MultiSave (int Size, struct MultiSave **SavestoAllocate)
+{
+	*SavestoAllocate = malloc(Size*sizeof(struct MultiSave));
+	if (*SavestoAllocate == NULL) goto Error;
+	return 1;
+Error:
+	return 0;	
 }
 
 
