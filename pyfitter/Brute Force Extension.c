@@ -37,7 +37,7 @@ struct MultiSave
 //Brute Force Functions
 double Brute_Force (double /*CostantsStart*/, double /*CosntantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
 double Brute_Force_ConstantsArray (double * /*ConstantsArray*/, int /*ConstantsSize*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
-double Brute_Force_Top_Results (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/, int /*SaveCount*/, struct MultiSave * /*Saves*/);
+double Brute_Force_Top_Results (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, int /*Verbose*/);
 
 //Scoring Functions
 int CountWins (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
@@ -148,14 +148,16 @@ int i,j,k;
 	return BestWins;
 }
 
-double Brute_Force_Top_Results (double ConstantsStart, double ConstantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod, int SaveCount, struct MultiSave *Saves)
+double Brute_Force_Top_Results (double ConstantsStart, double ConstantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod, int SaveCount, struct MultiSave *Saves, int Verbose)
 {
 //Variant of the Brute Force search that takes an array of values for the constants so you can use nonlinear steps for more effective searches
-double CurrentA,CurrentB,CurrentC,Wins,Count;
+double CurrentA,CurrentB,CurrentC,Wins,Count,Timing;
 double Constants[3];
+int i;
 	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
 	Wins = 0;
 	CurrentA = ConstantsStart;
+	clock_t begin = clock();
 	while (CurrentA < ConstantsStop) {
 		CurrentB = ConstantsStart;
 		while (CurrentB < ConstantsStop) {
@@ -190,6 +192,7 @@ double Constants[3];
 						Saves[0].B = CurrentB;
 						Saves[0].C = CurrentC;
 						insertionSort_Saves(Saves, SaveCount); 
+						if (Verbose > 1) printf ("New Good One -- %.2f %.2f %.2f %.2f Kappa:%f\n",Wins,CurrentA,CurrentB,CurrentC,Get_Kappa(CurrentA,CurrentB,CurrentC));
 					}
 					Count+=1.0;
 				}
@@ -198,8 +201,12 @@ double Constants[3];
 			CurrentB += ConstantsStep;
 		}
 		CurrentA += ConstantsStep;
-		printf ("A:%f\n",CurrentA);
+		if (Verbose) printf ("A:%f\n",CurrentA);
 	}
+	clock_t end = clock();
+	Timing = (double)(end - begin) / CLOCKS_PER_SEC;
+	if (Verbose) printf ("%.1f Fits in %.2f sec\n", Count,Timing);
+	if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
 	return 1;
 }
 
