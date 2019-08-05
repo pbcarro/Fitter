@@ -425,13 +425,13 @@ int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *State
 //This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
 int i,StateLimit;
 FILE *FileHandle;
-char TempString[5000];	
+char TempString[500000];	
 	StateLimit = 10000;
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
 	if (FileHandle == NULL) goto Error;	
 	*StateCount = 0;
-	while (fgets(TempString, 5000, FileHandle) != NULL) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
+	while (fgets(TempString, 500000, FileHandle) != NULL) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
 	rewind(FileHandle);	//Rewind to the start of the file
 	(*StructToLoad).ETVals = malloc(StateLimit*(*StateCount)*sizeof(double));																
 	if ((*StructToLoad).ETVals == NULL) goto Error;
@@ -588,6 +588,7 @@ double E_tau (int TransitionIndex, double Kappa, struct ETauStruct ETStruct)
 //Values are explicitly calculated when E_tau has an analytic form, for all other values we use a look up table calculated elsewhere
 int Index;
 	Index = (int) ((Kappa+1.0)/ETStruct.Delta);
+	printf ("Index:%d Transition Index: %d Kappa:%f\n",Index,TransitionIndex,Kappa);
 	switch (TransitionIndex) {	//This version just switches by a transition index, aka lookup table
 		case 0:																																//000 (0)
 			return 0.0;	//The easiest one
@@ -663,6 +664,7 @@ double Get_Frequency (int J_Up, int J_Low, int IndexUp, int IndexLow, double *Co
 //Ease of use function to compute the frequency of an asymmetric rotor
 double Kappa;
 	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	printf ("%f\n",fabs(Rigid_Rotor(Constants[0],Constants[2],J_Up,IndexUp,Kappa,ETStruct)-Rigid_Rotor(Constants[0],Constants[2],J_Low,IndexLow,Kappa,ETStruct)));
 	return fabs(Rigid_Rotor(Constants[0],Constants[2],J_Up,IndexUp,Kappa,ETStruct)-Rigid_Rotor(Constants[0],Constants[2],J_Low,IndexLow,Kappa,ETStruct));
 }
 
@@ -697,29 +699,35 @@ void Sort_Catalog (struct Transition *CatalogtoSort, int TransitionCount, int So
 	switch (SortType) {
 		case 0:
 			Catalog_Comparator = &Catalog_Comparator_Frequency;
+			break;
 		case 1:
 			Catalog_Comparator = &Catalog_Comparator_Intensity;	
 			SortMethod = 1;
+			break;
 		case 2:
 			Catalog_Comparator = &Catalog_Comparator_Index_Upper;
 			SortMethod = 1;	
+			break;
 		case 3:
 			Catalog_Comparator = &Catalog_Comparator_Index_Lower;
 			SortMethod = 1;
+			break;
 		default:
 			Catalog_Comparator = &Catalog_Comparator_Frequency;	
+			break;
 	}
 	switch (SortMethod) {
 		case 1:
 			//Quick Sort - Fast for general sorting
 			//This should be slower than insertion sort, but is here as a backup
 			qsort(CatalogtoSort, TransitionCount, sizeof(struct Transition), Catalog_Comparator);
+			break
 		default:
 			//Insertion Sort - Use this one
 			//Faster than quicksort when the target is already somewhat sorted
 			//The program should in general produce fairly ordered catalogs already, so this ought to be the better choice
 			insertionSort(CatalogtoSort, TransitionCount); 
-			return;
+			break;
 	}
 }
 
@@ -738,8 +746,8 @@ int Catalog_Comparator_Intensity (const void *a, const void *b)
 //Comparison function for qsort sorting of the catalog
 	struct Transition A = *(struct Transition *) a;
 	struct Transition B = *(struct Transition *) b;
-	if (A.Intensity > B.Intensity) return 1;
-	else if (A.Intensity < B.Intensity) return -1;
+	if (A.Intensity < B.Intensity) return 1;
+	else if (A.Intensity > B.Intensity) return -1;
 	else return 0;
 }
 
