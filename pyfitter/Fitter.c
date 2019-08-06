@@ -103,8 +103,9 @@ int Catalog_Comparator_Intensity (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Upper (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
-void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, int /*Verbose*/);
+void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, int /*DictionaryLevels*/, int /*Verbose*/);
 void Calculate_Intensities (struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, struct Level */*MyDictionary*/, double /*T*/, double */*Dipoles*/, int /*Verbose*/);
+int Standardize_Catalog (struct Transition * /*CatalogtoStandardize*/, int /*CatLines*/, int /*Verbose*/);
 
 //Triples fitting functions
 int Peak_Find (double **/*LineList*/, double /*Max*/, double /*Min*/, double */*X*/, double */*Y*/, int /*ArraySize*/, int /*Verbose*/);
@@ -132,7 +133,6 @@ struct Transition *BaseCatalog, *SortedCatalog;	//Model catalog used to save tim
 struct Level	*BaseDict;						//The base catalog dictionary, translates from an index to J/Ka/Kc 
 int CatalogTransitions,DictionaryLevels;		//Number of transitions in the catalogs
 int i,j;
-double *EnergyLevels,*IntensityVals;
 
 	
 	if (!Initialize_Stuff(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog)) {
@@ -235,9 +235,7 @@ double *EnergyLevels,*IntensityVals;
 	int TimingLoops = 10;	//Number if timing runs, used to capture variance in the run time
 	double *Timing;
 	Timing = malloc (TimingLoops*sizeof(double));
-	
-	EnergyLevels = malloc(DictionaryLevels*sizeof(double));
-	IntensityVals = malloc(CatalogTransitions*sizeof(double));
+
 	
 	//Asymmetric Top
 	Constants[0] = 2000.0;
@@ -271,7 +269,7 @@ double *EnergyLevels,*IntensityVals;
 	);
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Upper);
 	qsort(SortedCatalog, CatalogTransitions, sizeof(struct Transition), Catalog_Comparator_Index_Lower);
-	Calculate_State_Energies (BaseDict, SortedCatalog, CatalogTransitions,0);
+	Calculate_State_Energies (BaseDict, SortedCatalog, CatalogTransitions,DictionaryLevels,0);
 	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 3.0, Dipoles,0);	
 
 	
@@ -1074,23 +1072,23 @@ double rcond;
 	fprintf (stderr, "iter %2zu: A = %.4f, B = %.4f, C = %.4f, cond(J) = %8.4f, |f(x)| = %.4f\n", iter, gsl_vector_get(x, 0), gsl_vector_get(x, 1), gsl_vector_get(x, 2), 1.0 / rcond, gsl_blas_dnrm2(f));
 }
 
-void Calculate_State_Energies (struct Level *MyCatalog, struct Transition *SourceCatalog, int CatalogTransitions, int Verbose)
+void Calculate_State_Energies (struct Level *MyDictionary, struct Transition *SourceCatalog, int CatalogTransitions, int DictionaryLevels, int Verbose)
 {
 //Function to get the energies of levels in a catalog
 int i;
-	(MyCatalog[0]).Energy = 0.0;
+	(MyDictionary[0]).Energy = 0.0;
+	for (i=0;i<CatalogTransitions;i++) (MyDictionary[SourceCatalog[i].Upper]).Energy = (MyDictionary[SourceCatalog[i].Lower]).Energy+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
 	for (i=0;i<CatalogTransitions;i++) {
-		(MyCatalog[SourceCatalog[i].Upper]).Energy = (MyCatalog[SourceCatalog[i].Lower]).Energy+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
-		(MyCatalog[SourceCatalog[i].Upper]).Energy *= 4.8E-5;
-		if (Verbose) printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (MyCatalog[SourceCatalog[i].Upper]).Energy, SourceCatalog[i].Upper, SourceCatalog[i].Lower);
+		(MyDictionary[i]).Energy *= 4.8E-5;
 	}
+	if (Verbose) for (i=0;i<CatalogTransitions;i++) printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (MyDictionary[SourceCatalog[i].Upper]).Energy, SourceCatalog[i].Upper, SourceCatalog[i].Lower);
 }
 
 void Calculate_Intensities (struct Transition *SourceCatalog, int CatalogTransitions, struct Level *MyDictionary, double T, double *Dipoles, int Verbose)
 {
 int i;
 	for (i=0;i<CatalogTransitions;i++) {
-		(SourceCatalog[i]).Intensity = Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
+		(SourceCatalog[i]).Intensity = Dipoles[SourceCatalog[i].Type-1]*Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(	exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
 		if (Verbose) printf ("%e %f %f\n",(SourceCatalog[i]).Intensity,(MyDictionary[SourceCatalog[i].Lower]).Energy,(MyDictionary[SourceCatalog[i].Upper]).Energy);
 	}
 }
@@ -1168,6 +1166,18 @@ double DummyFunction (struct Transition *MyCatalog, void *Data)
 	return 1.0;
 }
 
-
-
-
+int Standardize_Catalog (struct Transition *CatalogtoStandardize, int CatLines, int Verbose)
+{
+//Utility function for standardizing a catalog
+int i;	//Declaring i here because I like it, and apparently learned C pre C99Constants
+double Sum,Mean,StdDev;
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<CatLines; ++i) Sum += CatalogtoStandardize[i].Frequency;
+    Mean = Sum/CatLines;
+    for(i=0; i<CatLines; ++i) StdDev += pow(CatalogtoStandardize[i].Frequency - Mean, 2.0);
+    StdDev = sqrt(StdDev/CatLines);
+	for (i=0;i<CatLines;i++) CatalogtoStandardize[i].Frequency = (CatalogtoStandardize[i].Frequency-Mean)/StdDev;
+	if (Verbose) printf ("Catalog Mean: %f\tCatalog Standard Deviation: %f\n",Mean,StdDev);
+	return 1;
+}
