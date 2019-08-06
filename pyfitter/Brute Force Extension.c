@@ -345,4 +345,21 @@ Error:
 	return 0;	
 }
 
+int Save_MultiSave (char *FileName, int Size, struct MultiSave *SavestoSave)
+{
+int i;
+FILE *FileHandle;
+	
+	FileHandle = NULL;
+	FileHandle = fopen (FileName, "w");									//Open file read only
+	if (FileHandle == NULL) goto Error;
+	for (i=0;i<Size;i++) {
+		fprintf (FileHandle,"%.3f\t%.2f\t%.2f\t%.2f\n",SavestoSave[i].Score,SavestoSave[i].A,SavestoSave[i].B,SavestoSave[i].C);
+	}
+	fclose(FileHandle);
+	return 1;
+Error:
+	printf ("Error: Unable to open save file");
+	return 0;	
+}
 
