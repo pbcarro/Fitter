@@ -721,7 +721,7 @@ void Sort_Catalog (struct Transition *CatalogtoSort, int TransitionCount, int So
 			//Quick Sort - Fast for general sorting
 			//This should be slower than insertion sort, but is here as a backup
 			qsort(CatalogtoSort, TransitionCount, sizeof(struct Transition), Catalog_Comparator);
-			break
+			break;
 		default:
 			//Insertion Sort - Use this one
 			//Faster than quicksort when the target is already somewhat sorted
