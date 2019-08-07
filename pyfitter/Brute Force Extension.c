@@ -32,12 +32,30 @@ struct MultiSave
 	double C;
 };
 
+struct Axis
+{
+	double *Array;
+	unsigned int Length;
+};
+
+struct Cube
+{
+	struct Axis AAxis;
+	struct Axis BAxis;
+	struct Axis CAxis;
+};
+
+typedef double (*WinCounter)(double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);	//Generic function pointer for the scoring function used in the triples fitter
+
+
 //=============Function Prototypes==============
 
 //Brute Force Functions
 double Brute_Force (double /*CostantsStart*/, double /*CosntantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
 double Brute_Force_ConstantsArray (double * /*ConstantsArray*/, int /*ConstantsSize*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
 double Brute_Force_Top_Results (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, int /*Verbose*/);
+
+double Brute_Force_Cube (struct Cube /*SearchCube*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, WinCounter /*WinFunction*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, char * /*FileName*/, int /*Verbose*/);
 
 //Scoring Functions
 int CountWins (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
@@ -49,6 +67,8 @@ double CountWins_No_Double_Exp (double * /*ExperimentalFrequencies*/, int /*Expe
 void insertionSort_Saves(struct MultiSave * /*SavestoSort*/, int /*SaveCount*/);
 int Load_Exp_Lines  (char * /*FileName*/, double ** /*X*/, int /*Verbose*/);
 int Allocate_MultiSave (int /*Size*/, struct MultiSave ** /*SavestoAllocate*/);
+int Save_MultiSave (char * /*FileName*/, int /*Size*/, struct MultiSave * /*SavestoSave*/);
+
 
 //=============Functions========================
 double Brute_Force (double CostantsStart, double CosntantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod)
@@ -206,6 +226,103 @@ int i;
 	clock_t end = clock();
 	Timing = (double)(end - begin) / CLOCKS_PER_SEC;
 	if (Verbose) printf ("%.1f Fits in %.2f sec\n", Count,Timing);
+	if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
+	return 1;
+}
+
+double Brute_Force_Pointer_Scoring (double ConstantsStart, double ConstantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, WinCounter WinFunction, int SaveCount, struct MultiSave *Saves, int Verbose)
+{
+//Variant of the Brute Force search that takes an array of values for the constants so you can use nonlinear steps for more effective searches
+double CurrentA,CurrentB,CurrentC,Wins,Count,Timing;
+double Constants[3];
+int i;
+	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
+	Wins = 0;
+	CurrentA = ConstantsStart;
+	clock_t begin = clock();
+	while (CurrentA < ConstantsStop) {
+		CurrentB = ConstantsStart;
+		while (CurrentB < ConstantsStop) {
+			CurrentC = ConstantsStart;
+			while (CurrentC < ConstantsStop) {
+				if ((CurrentA > CurrentB) && (CurrentB > CurrentC)) {					
+					Constants[0] = CurrentA;
+					Constants[1] = CurrentB;
+					Constants[2] = CurrentC;
+					Get_Catalog (	SearchingCatalog, 		//Catalog to compute frequencies for
+									Constants, 			//Rotational constants for the calculation
+									CatalogTransitions,	//# of transitions in the catalog
+									0,					//Verbose
+									ETStruct,
+									SearchingDictionary
+								);
+					Wins = WinFunction (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+					if (Wins > Saves[0].Score) {
+						Saves[0].Score = Wins;
+						Saves[0].A = CurrentA;
+						Saves[0].B = CurrentB;
+						Saves[0].C = CurrentC;
+						insertionSort_Saves(Saves, SaveCount); 
+						if (Verbose > 1) printf ("New Good One -- %.2f %.2f %.2f %.2f Kappa:%f\n",Wins,CurrentA,CurrentB,CurrentC,Get_Kappa(CurrentA,CurrentB,CurrentC));
+					}
+					Count+=1.0;
+				}
+				CurrentC += ConstantsStep;
+			}
+			CurrentB += ConstantsStep;
+		}
+		CurrentA += ConstantsStep;
+		if (Verbose) printf ("A:%f\n",CurrentA);
+	}
+	clock_t end = clock();
+	Timing = (double)(end - begin) / CLOCKS_PER_SEC;
+	if (Verbose) printf ("%.1f Fits in %.2f sec\n", Count,Timing);
+	if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
+	return 1;
+}
+
+double Brute_Force_Cube (struct Cube SearchCube, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, WinCounter WinFunction, int SaveCount, struct MultiSave *Saves, char *FileName, int Verbose)
+{
+//Variant of the Brute Force search that takes an array of values for the constants so you can use nonlinear steps for more effective searches
+double Wins,Count,Timing;
+double Constants[3];
+int i,j,k;
+	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
+	Wins = 0.0;
+	clock_t begin = clock();
+	for (i=0;i<SearchCube.AAxis.Length;i++) {
+		Constants[0] = SearchCube.AAxis.Array[i];
+		for (j=0;k<SearchCube.BAxis.Length;j++) {
+			Constants[1] = SearchCube.BAxis.Array[j];
+			for (k=0;k<SearchCube.CAxis.Length;k++) {
+				Constants[2] = SearchCube.CAxis.Array[k];
+				if ((Constants[0] > Constants[1]) && (Constants[1] > Constants[2])) {					
+					Get_Catalog (	SearchingCatalog, 		//Catalog to compute frequencies for
+									Constants, 			//Rotational constants for the calculation
+									CatalogTransitions,	//# of transitions in the catalog
+									0,					//Verbose
+									ETStruct,
+									SearchingDictionary
+								);
+					Wins = WinFunction (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+					if (Wins > Saves[0].Score) {
+						Saves[0].Score = Wins;
+						Saves[0].A = Constants[0];
+						Saves[0].B = Constants[1];
+						Saves[0].C = Constants[2];
+						insertionSort_Saves(Saves, SaveCount); 
+						if (Verbose > 1) printf ("New Good One -- %.2f %.2f %.2f %.2f Kappa:%f\n",Wins,Constants[0],Constants[1],Constants[2],Get_Kappa(Constants[0],Constants[1],Constants[2]));
+					}
+					Count+=1.0;
+				}
+			}
+		}
+		if (Verbose) printf ("A:%f\n",Constants[0]);
+	}
+	clock_t end = clock();
+	Timing = (double)(end - begin) / CLOCKS_PER_SEC;
+	if (FileName != NULL) Save_MultiSave (FileName, SaveCount, Saves);
+	if (Verbose) printf ("%.1e Fits in %.2f sec\n", Count,Timing);
 	if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
 	return 1;
 }
