@@ -20,7 +20,7 @@ gcc -Wall -o Brute.so -shared -fPIC -O3 -funroll-loops Brute\ Force\ Extension.c
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_multifit_nlinear.h>
 #include <gsl/gsl_linalg.h>
-#include "Fitter.c"
+#include "Fitter.h"
 
 
 //=============Structures==============
@@ -54,7 +54,7 @@ typedef double (*WinCounter)(double * /*ExperimentalFrequencies*/, int /*Experim
 double Brute_Force (double /*CostantsStart*/, double /*CosntantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
 double Brute_Force_ConstantsArray (double * /*ConstantsArray*/, int /*ConstantsSize*/, double * /*ExperimentalLines*/, int ExperimentalLineCount, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/);
 double Brute_Force_Top_Results (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, int /*Verbose*/);
-
+double Brute_Force_Pointer_Scoring (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, WinCounter /*WinFunction*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, int /*Verbose*/);
 double Brute_Force_Cube (struct Cube /*SearchCube*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, WinCounter /*WinFunction*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, char * /*FileName*/, int /*Verbose*/);
 
 //Scoring Functions
@@ -68,7 +68,8 @@ void insertionSort_Saves(struct MultiSave * /*SavestoSort*/, int /*SaveCount*/);
 int Load_Exp_Lines  (char * /*FileName*/, double ** /*X*/, int /*Verbose*/);
 int Allocate_MultiSave (int /*Size*/, struct MultiSave ** /*SavestoAllocate*/);
 int Save_MultiSave (char * /*FileName*/, int /*Size*/, struct MultiSave * /*SavestoSave*/);
-
+int Build_Axis_Linear (struct Axis * /*TargetAxis*/, double /*AxisStart*/, double /*AxisStepSize*/, unsigned int /*AxisSteps*/);
+int Build_Cube_Linear (struct Cube * /*TargetCube*/, double * /*AxisStart*/, double * /*AxisStepSize*/, unsigned int * /*AxisSteps*/);
 
 //=============Functions========================
 double Brute_Force (double CostantsStart, double CosntantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod)
@@ -478,5 +479,26 @@ FILE *FileHandle;
 Error:
 	printf ("Error: Unable to open save file");
 	return 0;	
+}
+
+int Build_Axis_Linear (struct Axis *TargetAxis, double AxisStart, double AxisStepSize, unsigned int AxisSteps)
+{
+int i;
+	TargetAxis->Length = AxisSteps;
+	TargetAxis->Array = malloc(TargetAxis->Length*sizeof(double));
+	if (TargetAxis->Array == NULL) goto Error;
+	for (i=0;i<TargetAxis->Length;i++) TargetAxis->Array[i] = AxisStart+i*AxisStepSize;
+	return 1;
+Error:
+	printf ("Error allocating axis\n");
+	return 0;	
+}
+
+int Build_Cube_Linear (struct Cube *TargetCube, double *AxisStart, double *AxisStepSize, unsigned int *AxisSteps)
+{
+	Build_Axis_Linear (TargetCube->AAxis,AxisStart[0],AxisStepSize[0],AxisSteps[0]);
+	Build_Axis_Linear (TargetCube->AAxis,AxisStart[1],AxisStepSize[1],AxisSteps[1]);
+	Build_Axis_Linear (TargetCube->AAxis,AxisStart[2],AxisStepSize[2],AxisSteps[2]);
+	return 1;	
 }
 
