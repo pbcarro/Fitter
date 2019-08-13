@@ -1,3 +1,17 @@
+#ifndef __FITTER_H__
+#define __FITTER_H__
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <gsl/gsl_vector.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_multifit_nlinear.h>
+#include <gsl/gsl_linalg.h>
+
 //=============Structures==============
 struct Level
 {
@@ -860,7 +874,7 @@ void Calculate_State_Energies (struct Level *MyDictionary, struct Transition *So
 int i;
 	(MyDictionary[0]).Energy = 0.0;
 	for (i=0;i<CatalogTransitions;i++) (MyDictionary[SourceCatalog[i].Upper]).Energy = (MyDictionary[SourceCatalog[i].Lower]).Energy+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
-	for (i=0;i<CatalogTransitions;i++) {
+	for (i=0;i<DictionaryLevels;i++) {
 		(MyDictionary[i]).Energy *= 4.8E-5;
 	}
 	if (Verbose) for (i=0;i<CatalogTransitions;i++) printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (MyDictionary[SourceCatalog[i].Upper]).Energy, SourceCatalog[i].Upper, SourceCatalog[i].Lower);
@@ -1214,7 +1228,7 @@ size_t n = MyOpt_Bundle->TransitionCount;	//Theyre hard coded because all triple
 
 int SBFIT (double *Guess, double *ChiSq, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, double *LineFrequencies)
 {
-int i,info;
+int i,info,Success;
 const double xtol = 1e-8;
 const double gtol = 1e-8;
 const double ftol = 1e-1;
@@ -1227,12 +1241,16 @@ gsl_vector_view x;
 	FitBundle->fdf.params = &MyOpt_Bundle;
 	gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);					//reInitialize the workspace incase this isnt the first run of the loop  	
 	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
-	gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 50 iterations
+	Success = 1;
+	gsl_multifit_nlinear_driver(200, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 50 iterations
 	Final = gsl_multifit_nlinear_position(FitBundle->Workspace);									//Snag the results
-	if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 50) printf ("Error: Unconverged Fit\n");
+	if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 200) {
+		printf ("Error: Unconverged Fit\n");
+		Success = 0;
+	}
 	gsl_blas_ddot(FitBundle->f, FitBundle->f, ChiSq);
-	printf ("A:%.4f B:%.4f C:%.4f\n",gsl_vector_get(Final, 0),gsl_vector_get(Final, 1),gsl_vector_get(Final, 2));
-	return 1;
+	//printf ("A:%.4f B:%.4f C:%.4f\n",gsl_vector_get(Final, 0),gsl_vector_get(Final, 1),gsl_vector_get(Final, 2));
+	return Success;
 }
 
 int SBFIT_OptFunc_gsl (const gsl_vector *x, void *params, gsl_vector *f)
@@ -1241,9 +1259,9 @@ double GSLConstants[3];	//Declare some doubles to hold our constants
 int i;
 	//I dont love doing this, but GSL really only wants one pointer to void for the function parameters. So this is a struct to hold all the things we need for calculating frequencies
 	struct Opt_Bundle *p = (struct Opt_Bundle *) params;
-	GSLConstants[0] = gsl_vector_get(x, 0);	//Pull these values from the vector
-	GSLConstants[1] = gsl_vector_get(x, 1);
-	GSLConstants[2] = gsl_vector_get(x, 2);
+	GSLConstants[0] = fabs(gsl_vector_get(x, 0));	//Pull these values from the vector
+	GSLConstants[1] = fabs(gsl_vector_get(x, 1));
+	GSLConstants[2] = fabs(gsl_vector_get(x, 2));
 	for (i=0;i<p->TransitionCount;i++) {
 		gsl_vector_set (f, i, Get_Frequency(p->MyDictionary[p->TransitionsGSL[i].Upper].J,
 											p->MyDictionary[p->TransitionsGSL[i].Lower].J,
@@ -1310,3 +1328,4 @@ struct Opt_Bundle TestOptBundle;
 	free(FittingFrequencies);	
 }
 
+#endif /* __FITTER_H__ */
