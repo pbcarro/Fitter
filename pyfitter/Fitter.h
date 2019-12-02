@@ -109,7 +109,7 @@ int OptFunc_gsl (const gsl_vector */*x*/, void */*params*/, gsl_vector */*f*/);
 int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle /*MyOpt_Bundle*/, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
 void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nlinear_workspace */*w*/);
 int Initialize_SBFIT (struct GSL_Bundle * /*FitBundle*/, struct Opt_Bundle * /*MyOpt_Bundle*/);
-int SBFIT (double */*Guess*/, double */*ChiSq*/, struct GSL_Bundle */*FitBundle*/, struct /*Opt_Bundle MyOpt_Bundle*/, double */*LineFrequencies*/, double **/*FinalConstants*/);
+int SBFIT (double */*Guess*/, double */*ChiSq*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle /*MyOpt_Bundle*/, double */*LineFrequencies*/, double **/*FinalConstants*/);
 int SBFIT_OptFunc_gsl (const gsl_vector * /*x*/, void * /*params*/, gsl_vector * /*f*/);
 
 //New Functions
@@ -657,7 +657,7 @@ int i, CatLinesOut;
 	CatLinesOut = 0; 
 	for (i=0;i<CatLines;i++) {
 		
-		if ((MyDictionary[(SourceCatalog)[i].Upper].Ka >= JMin) && (MyDictionary[(SourceCatalog)[i].Upper].Ka <= JMax)) {
+		if ((MyDictionary[(SourceCatalog)[i].Upper].Ka >= KaMin) && (MyDictionary[(SourceCatalog)[i].Upper].Ka <= KaMax)) {
 			(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i];
 			if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
 			if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
@@ -1188,7 +1188,7 @@ Error:
 void Test_SBFIT (void)
 {
 double GuessConstants[3], RealConstants[3], Dipoles[3], ChiSqr;
-double *FittingFrequencies;
+double *FittingFrequencies,*FitConstants;
 int i,CatalogTransitions,DictionaryLevels,JRestrictedLines,IntRestrictedLines,FrequencyCount;
 struct ETauStruct ETStruct;
 struct Transition *BaseCatalog, *JRestricted, *IntRestricted;	//Model catalog used to save time and simplify	
@@ -1209,6 +1209,7 @@ struct Opt_Bundle TestOptBundle;
 	Dipoles[2] = 1.0;
 	
 	FrequencyCount = 10;
+	FitConstants = malloc(3*sizeof(double));
 		
 	Initialize_Stuff(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog);
 	
@@ -1236,9 +1237,11 @@ struct Opt_Bundle TestOptBundle;
 	}
 
 
-  	SBFIT (GuessConstants, &ChiSqr, &TestGSLBundle, TestOptBundle, FittingFrequencies);
+  	SBFIT (GuessConstants, &ChiSqr, &TestGSLBundle, TestOptBundle, FittingFrequencies, &FitConstants);
   	
-	free(FittingFrequencies);	
+	free(FittingFrequencies);
+	free(FitConstants);
+	
 }
 
 void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary, int CatalogLines, struct ETauStruct FittingETStruct)
