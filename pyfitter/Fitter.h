@@ -86,48 +86,48 @@ int Get_Catalog (struct Transition */*CatalogtoFill*/, double */*Constants*/, in
 
 //General catalog functions
 void print_Transition (struct Transition /*TransitionToPrint*/, struct Level */*MyDictionary*/);
-int Fill_Catalog_Restricted_Frequency (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*FrequencyLow*/, double /*FrequencyHigh*/, int /*Verbose*/, struct Level */*MyDictionary*/);
-int Fill_Catalog_Restricted_J (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*JMin*/, int /*JMax*/, int /*Verbose*/, struct Level */*MyDictionary*/);
-int Fill_Catalog_Restricted_Intensity (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*Percentile*/, int /*Verbose*/, struct Level */*MyDictionary*/);
 void Sort_Catalog (struct Transition */*Catalog*/, int /*TransitionCount*/, int /*SortMethod*/, int /*SortType*/);
 int Catalog_Comparator_Frequency (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Intensity (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Upper (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
+int Fill_Catalog_Restricted_Frequency (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*FrequencyLow*/, double /*FrequencyHigh*/, int /*Verbose*/, struct Level */*MyDictionary*/);
+int Fill_Catalog_Restricted_J (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*JMin*/, int /*JMax*/, int /*Verbose*/, struct Level */*MyDictionary*/);
+int Fill_Catalog_Restricted_Intensity (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*Percentile*/, int /*Verbose*/, struct Level */*MyDictionary*/);
+int Fill_Catalog_Restricted_Intensity_Count (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*CatLinesOut*/, int /*Verbose*/, struct Level */*MyDictionary*/);
 void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, int /*DictionaryLevels*/, int /*Verbose*/);
 void Calculate_Intensities (struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, struct Level */*MyDictionary*/, double /*T*/, double */*Dipoles*/, int /*Verbose*/);
 int Standardize_Catalog (struct Transition * /*CatalogtoStandardize*/, int /*CatLines*/, int /*Verbose*/);
 
-//Triples fitting functions
+//Fitting functions
 int Peak_Find (double **/*LineList*/, double /*Max*/, double /*Min*/, double */*X*/, double */*Y*/, int /*ArraySize*/, int /*Verbose*/);
 int Find_Triples (struct Triple */*TripletoFit*/, double */*LineFrequencies*/, double /*Window*/, int /*LineCount*/);
-double Fit_Lines (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOptBundle*/);
+double Fit_Triples (double */*Guess*/, int /*Verbose*/, struct Opt_Bundle /*GSLOptBundle*/);
 void Initialize_Triples_Fitter (struct GSL_Bundle * /*FitBundle*/, struct Opt_Bundle * /*MyOpt_Bundle*/);
 int OptFunc_gsl (const gsl_vector */*x*/, void */*params*/, gsl_vector */*f*/);
-int Fit_Triples (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, double */*ExperimentalLines*/, int /*ExperimentalLineCount*/);
 int Fit_Triples_Bundle (struct Triple /*TransitionstoFit*/, double */*Guess*/, double **/*FitResults*/, struct Transition **/*Catalog*/, int /*CatalogLines*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle /*MyOpt_Bundle*/, ScoreFunction /*TriplesScoreFunction*/, void */*ScoringParameters*/);
-
 void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nlinear_workspace */*w*/);
+int Initialize_SBFIT (struct GSL_Bundle * /*FitBundle*/, struct Opt_Bundle * /*MyOpt_Bundle*/);
+int SBFIT (double */*Guess*/, double */*ChiSq*/, struct GSL_Bundle */*FitBundle*/, struct /*Opt_Bundle MyOpt_Bundle*/, double */*LineFrequencies*/, double **/*FinalConstants*/);
+int SBFIT_OptFunc_gsl (const gsl_vector * /*x*/, void * /*params*/, gsl_vector * /*f*/);
 
 //New Functions
 int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
 
-void Test_Triples (char *, struct Transition *, struct Level *, int /*CatalogLines*/, struct ETauStruct /*FittingETStruct*/);
-double DummyFunction (struct Transition */*MyCatalog*/, void */*Data*/);
-
+//Test Functions
 void Timing_Test(void);
 void Accuracy_Test(void);
-
-int Initialize_SBFIT (struct GSL_Bundle * /*FitBundle*/, struct Opt_Bundle * /*MyOpt_Bundle*/);
-int SBFIT_OptFunc_gsl (const gsl_vector * /*x*/, void * /*params*/, gsl_vector * /*f*/);
-
 void Test_SBFIT (void);
+void Test_Triples (char *, struct Transition *, struct Level *, int /*CatalogLines*/, struct ETauStruct /*FittingETStruct*/);
+double DummyFunction (struct Transition */*MyCatalog*/, void */*Data*/);
 
 //Functions
 
 int Initialize_Stuff (double **ETArray, int *CatTransitions, int *DictLevels, double *FileDelta, int *StatePoints, struct Level **DictionaryIn, struct Transition **CatalogIn) 
 {
+//Ease of use function for loading stuff all at once, outdated and will be removed at some point
+
 int TempPoints;
 	TempPoints = 0;
 	srand(time(NULL));								//Initializing the time calls elsewhere	
@@ -156,6 +156,7 @@ Error:
 
 int Load_ETau_File (char *FileName, double **X, double *FileDelta, int *StatePoints, int *StateCount) 
 {
+
 //This loads the E_Tau file in by reading a single value from the file until there are no more values found in the file
 //This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
 //Figuring out where each state starts and stops is done elsewhere, so the global variables need to be set properly to deal with this
@@ -195,6 +196,9 @@ int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *State
 {
 //This loads the E_Tau file in by reading a single value from the file until there are no more values found in the file
 //This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
+
+//Currently in testing
+
 int i,StateLimit;
 FILE *FileHandle;
 char TempString[500000];	
@@ -337,6 +341,7 @@ Error:
 	return 0;
 }
 
+////////////////////////////////////
 double Get_Kappa (double A, double B, double C) 
 {
 	//Computes Ray's asymmetry parameter
@@ -350,6 +355,8 @@ int Get_J (int TransitionIndex, struct Level *MyDictionary)
 
 double Partition_Function (double *Constants, double Temperature) 
 {
+//Gordy and Cook partition function approximation function. 
+//Not currently used but left here in case it becomes useful
 	return (5.34E+6*sqrt(pow(Temperature,3.0)/(Constants[0]*Constants[1]*Constants[2])));
 }
 
@@ -359,6 +366,13 @@ double E_tau (int TransitionIndex, double Kappa, struct ETauStruct ETStruct)
 //Really this just fetches a value for the appropriate value of J/Ka/Kc
 //Values are explicitly calculated when E_tau has an analytic form, for all other values we use a look up table calculated elsewhere
 int Index;
+	//Mapping trick to keep Kappa in line in bad fits
+	//if we exceed 1 or -1 we can jump into the wrong state and get off track fast or just segfault
+	//This remaps Kappa onto a normalized arctangent function so it can never exceed |1|, but asymptotically approaches it as the program ramps the real kappa
+	//The 100 is to get it in a reasonable range for the function
+	//This has the potential to return poor results on its own, but is better than the alternative
+	if (Kappa > 1.0) Kappa = atan(100.0*Kappa)/1.570796326794896619231321691639;
+	if (Kappa < -1.0) Kappa = atan(100.0*Kappa)/1.570796326794896619231321691639;
 	Index = (int) ((Kappa+1.0)/ETStruct.Delta);
 	switch (TransitionIndex) {	//This version just switches by a transition index, aka lookup table
 		case 0:																																//000 (0)
@@ -415,6 +429,7 @@ int Index;
 		case 32:
 			return 10.0*Kappa+6.0*sqrt(Kappa*Kappa+3.0);																					//542 (+2)														
 		//============ J >= 6 ============
+		//For any non hardcoded state we do the actual math
 		default: 
 			return ETStruct.ETVals[Index+ETStruct.StatePoints*TransitionIndex]+((ETStruct.ETVals[Index+ETStruct.StatePoints*TransitionIndex+1]-ETStruct.ETVals[Index+ETStruct.StatePoints*TransitionIndex])/ETStruct.Delta)*(Kappa-((Index*ETStruct.Delta)-1.0));
 	}	
@@ -456,6 +471,7 @@ int i;	//Declaring i here because I like it, and apparently learned C pre C99Con
 	return 1;
 }
 
+////////////////////////////////////
 void print_Transition (struct Transition TransitionToPrint, struct Level *MyDictionary)
 {
 //Utility function for printing transitions
@@ -581,7 +597,7 @@ int i, CatLinesOut;
 	CatLinesOut = 0; 
 	for (i=0;i<CatLines;i++) {
 		
-		if ((MyDictionary[(SourceCatalog)[i].Upper].J > JMin) && (MyDictionary[(SourceCatalog)[i].Upper].J < JMax)) {
+		if ((MyDictionary[(SourceCatalog)[i].Upper].J >= JMin) && (MyDictionary[(SourceCatalog)[i].Upper].J <= JMax)) {
 			(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i];
 			if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
 			if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
@@ -634,6 +650,84 @@ Error:
 	return -1;
 }
 
+int Fill_Catalog_Restricted_Ka (struct Transition *SourceCatalog, struct Transition **CatalogtoFill, double *Constants, int CatLines, int KaMin, int KaMax, int Verbose, struct Level *MyDictionary)
+{
+int i, CatLinesOut;     
+	*CatalogtoFill = malloc(CatLines*sizeof(struct Transition));
+	CatLinesOut = 0; 
+	for (i=0;i<CatLines;i++) {
+		
+		if ((MyDictionary[(SourceCatalog)[i].Upper].Ka >= JMin) && (MyDictionary[(SourceCatalog)[i].Upper].Ka <= JMax)) {
+			(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i];
+			if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
+			if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
+			CatLinesOut++;
+		}
+     } 
+	*CatalogtoFill = realloc (*CatalogtoFill,CatLinesOut*sizeof(struct Transition));   
+	return CatLinesOut;
+}
+
+void Calculate_State_Energies (struct Level *MyDictionary, struct Transition *SourceCatalog, int CatalogTransitions, int DictionaryLevels, int Verbose)
+{
+//Function to get the energies of levels in a catalog
+int i;
+	(MyDictionary[0]).Energy = 0.0;
+	for (i=0;i<CatalogTransitions;i++) (MyDictionary[SourceCatalog[i].Upper]).Energy = (MyDictionary[SourceCatalog[i].Lower]).Energy+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
+	for (i=0;i<DictionaryLevels;i++) {
+		(MyDictionary[i]).Energy *= 4.8E-5;
+	}
+	if (Verbose) for (i=0;i<CatalogTransitions;i++) printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (MyDictionary[SourceCatalog[i].Upper]).Energy, SourceCatalog[i].Upper, SourceCatalog[i].Lower);
+}
+
+void Calculate_Intensities (struct Transition *SourceCatalog, int CatalogTransitions, struct Level *MyDictionary, double T, double *Dipoles, int Verbose)
+{
+int i;
+	for (i=0;i<CatalogTransitions;i++) {
+		(SourceCatalog[i]).Intensity = Dipoles[SourceCatalog[i].Type-1]*Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(	exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
+		if (Verbose) printf ("%e %f %f\n",(SourceCatalog[i]).Intensity,(MyDictionary[SourceCatalog[i].Lower]).Energy,(MyDictionary[SourceCatalog[i].Upper]).Energy);
+	}
+}
+
+int Standardize_Catalog (struct Transition *CatalogtoStandardize, int CatLines, int Verbose)
+{
+//Utility function for standardizing a catalog
+int i;	//Declaring i here because I like it, and apparently learned C pre C99Constants
+double Sum,Mean,StdDev;
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<CatLines; ++i) Sum += CatalogtoStandardize[i].Frequency;
+    Mean = Sum/CatLines;
+    for(i=0; i<CatLines; ++i) StdDev += pow(CatalogtoStandardize[i].Frequency - Mean, 2.0);
+    StdDev = sqrt(StdDev/CatLines);
+	for (i=0;i<CatLines;i++) CatalogtoStandardize[i].Frequency = (CatalogtoStandardize[i].Frequency-Mean)/StdDev;
+	if (Verbose) printf ("Catalog Mean: %f\tCatalog Standard Deviation: %f\n",Mean,StdDev);
+	return 1;
+}
+
+////////////////////////////////////
+int Peak_Find (double **LineList, double Max, double Min, double *X, double *Y, int ArraySize, int Verbose)
+{
+//Pretty standard implementation of a peakfinding algorithm
+//If a point is within the min/max amplitude and higher than the two points on either side we consider it a peak		
+int i,PeakCount;	
+	*LineList = malloc((int)(ArraySize/3)*sizeof(double));		//Allocate an array as large as one third the size of the experimental array, this is essentially the theoretical max # of peaks and we should never get close to that
+	PeakCount = 0;
+	for (i=1;i<ArraySize-1;i++) {
+		if (((Y)[i] > Min) & ((Y)[i] < Max)) {		//Checking for min max first, not sure if this is faster or if this really matters at all, probably not
+			if (((Y)[i-1] <(Y)[i]) & ((Y)[i+1] <(Y)[i])) {
+				(*LineList)[PeakCount] = X[i];
+				PeakCount++;
+			}
+		}
+	}	
+	if (Verbose) {
+		printf ("Found %d peaks\n",PeakCount);
+	}
+	*LineList = realloc(*LineList,PeakCount*sizeof(double));	
+	return PeakCount;
+}
+
 int Find_Triples (struct Triple *TripletoFit, double *LineFrequencies, double Window, int LineCount)
 {
 int i,Count;	
@@ -678,7 +772,7 @@ int i,Count;
 	return 1;
 }
 
-double Fit_Lines (double *Guess, int Verbose, struct Opt_Bundle GSLOptBundle)
+double Fit_Triples (double *Guess, int Verbose, struct Opt_Bundle GSLOptBundle)
 {
 //Fit a set of three lines to A/B/C
 //This function is semi-obsolete. Fitting a single set of transitions like this is hugely wasteful as you have to reallocate and free all the variables for each fit. Better to fit a full set of triples, or even to use a single workspace for all fits
@@ -730,86 +824,6 @@ size_t n = 3;	//Theyre hard coded because all triples fits are 3 parameters and 
  	else MyOpt_Bundle->TransitionsGSL = realloc(MyOpt_Bundle->TransitionsGSL,MyOpt_Bundle->TransitionCount*sizeof(struct Transition));
 }
 
-int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
-{
-int i,j,k,info,Count,Iterations,Wins,Errors;
-const double xtol = 1e-8;
-const double gtol = 1e-8;
-const double ftol = 1e-1;
-const size_t p = 3;
-struct Transition Transitions[3];
-gsl_vector *Final;
-gsl_vector_view x;
-  	
-  	x = gsl_vector_view_array (Guess, p);							//Set the guess	
-  	FitResults = malloc(sizeof(double));
-  
-  	
-  	//Extract the transitions we'll use for the fit
-  	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
-  	Transitions[0].Lower = TransitionstoFit.TransitionList[0].Lower;
-  	Transitions[1].Upper = TransitionstoFit.TransitionList[1].Upper;
-  	Transitions[1].Lower = TransitionstoFit.TransitionList[1].Lower;
-	Transitions[2].Upper = TransitionstoFit.TransitionList[2].Upper;
-  	Transitions[2].Lower = TransitionstoFit.TransitionList[2].Lower;  
-  	//printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
-  	Wins = 0;		//Track the total number of wins for the current scoring system
-  	Count = 0;		//Track the total number of constants (A+B+C) in the fit results
-  	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
-  	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
-  	double MyConstants[3];
-  	
-  	FitBundle->fdf.params = &MyOpt_Bundle;
-  	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
-  		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
-  			for (k=0;k<TransitionstoFit.TriplesCount[2];k++) {
-  				//This is why the transitions were extracted. We set the 3 transition's frequencies to those of the triple we're working on and hand it off to the fitter
-  				
-  				//Transitions[0].Frequency = TransitionstoFit.TriplesList[i];				
-  				//Transitions[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
-  				//Transitions[2].Frequency = TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
-				MyOpt_Bundle.TransitionsGSL[0].Frequency = TransitionstoFit.TriplesList[i];
-				MyOpt_Bundle.TransitionsGSL[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
-				MyOpt_Bundle.TransitionsGSL[2].Frequency =  TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];
-				
-				printf ("%f %f %f\n",MyOpt_Bundle.TransitionsGSL[0].Frequency,MyOpt_Bundle.TransitionsGSL[1].Frequency,MyOpt_Bundle.TransitionsGSL[2].Frequency);
-				FitBundle->fdf.params = &MyOpt_Bundle;															//Set the parameters for this run
-				
-				//Current problem code for ctypes
-   				gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
-				
-				FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
-  				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 20 iterations
-  				
-  				Iterations += gsl_multifit_nlinear_niter (FitBundle->Workspace); 	//Track the iterations
-  				Final = gsl_multifit_nlinear_position(FitBundle->Workspace);		//Snag the results
-  				if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 50) {		//Check for an error, currently only considering non-convergence
-  					printf ("Error: Unconverged Fit: %.4f %.4f %.4f\n",Transitions[0].Frequency,Transitions[1].Frequency,Transitions[2].Frequency);
-  					Errors++;
-  				}
-   				
-   				//(*FitResults)[Count] = gsl_vector_get(Final, 0);	//Get the final A
-  				MyConstants[0] = gsl_vector_get(Final, 0);				//Update the constants
-  				Count++;											//Track the number of items in FitResults
-  				//(*FitResults)[Count] = gsl_vector_get(Final, 1);	
-  				MyConstants[1] = gsl_vector_get(Final, 1);
-  				Count++;
-  				//(*FitResults)[Count] = gsl_vector_get(Final, 2);
-  				MyConstants[2] = gsl_vector_get(Final, 2);
-  				Count++;
-  				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle.ETGSL,MyOpt_Bundle.MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
-  				Sort_Catalog (*MyFittingCatalog,CatalogLines,0,0);					//Catalog is not necessarily sorted, so we sort it
-				//TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
-  			} 
-  		} 
-  	}
-	printf ("%d\n",Count);
-  	printf ("%e %e %e\n",MyConstants[0],MyConstants[1],MyConstants[2]);
-  	printf ("%i average iterations, %i Errors\n",Iterations/(TransitionstoFit.TriplesCount[0]*TransitionstoFit.TriplesCount[1]*TransitionstoFit.TriplesCount[2]),Errors);
-	free(FitResults);
-	return 1;
-}
-
 int OptFunc_gsl (const gsl_vector *x, void *params, gsl_vector *f)
 {
 double GSLConstants[3];	//Declare some doubles to hold our constants
@@ -837,30 +851,75 @@ double GSLConstants[3];	//Declare some doubles to hold our constants
 	return GSL_SUCCESS;
 }
 
-int Peak_Find (double **LineList, double Max, double Min, double *X, double *Y, int ArraySize, int Verbose)
+int Fit_Triples_Bundle (struct Triple TransitionstoFit, double *Guess, double **FitResults, struct Transition **MyFittingCatalog, int CatalogLines, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, ScoreFunction TriplesScoreFunction, void *ScoringParameters)
 {
-//Pretty standard implementation of a peakfinding algorithm
-//If a point is within the min/max amplitude and higher than the two points on either side we consider it a peak		
-int i,PeakCount;	
-	*LineList = malloc((int)(ArraySize/3)*sizeof(double));		//Allocate an array as large as one third the size of the experimental array, this is essentially the theoretical max # of peaks and we should never get close to that
-	PeakCount = 0;
-	for (i=1;i<ArraySize-1;i++) {
-		if (((Y)[i] > Min) & ((Y)[i] < Max)) {		//Checking for min max first, not sure if this is faster or if this really matters at all, probably not
-			if (((Y)[i-1] <(Y)[i]) & ((Y)[i+1] <(Y)[i])) {
-				(*LineList)[PeakCount] = X[i];
-				PeakCount++;
-			}
-		}
-	}	
-	if (Verbose) {
-		printf ("Found %d peaks\n",PeakCount);
-	}
-	*LineList = realloc(*LineList,PeakCount*sizeof(double));	
-	return PeakCount;
+int i,j,k,info,Count,Iterations,Wins,Errors;
+const double xtol = 1e-8;
+const double gtol = 1e-8;
+const double ftol = 1e-1;
+const size_t p = 3;
+struct Transition Transitions[3];
+gsl_vector *Final;
+gsl_vector_view x;
+  	x = gsl_vector_view_array (Guess, p);							//Set the guess	
+  	FitResults = malloc(sizeof(double));
+  	//Extract the transitions we'll use for the fit
+  	Transitions[0].Upper = TransitionstoFit.TransitionList[0].Upper;
+  	Transitions[0].Lower = TransitionstoFit.TransitionList[0].Lower;
+  	Transitions[1].Upper = TransitionstoFit.TransitionList[1].Upper;
+  	Transitions[1].Lower = TransitionstoFit.TransitionList[1].Lower;
+	Transitions[2].Upper = TransitionstoFit.TransitionList[2].Upper;
+  	Transitions[2].Lower = TransitionstoFit.TransitionList[2].Lower;  
+  	//printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
+  	Wins = 0;		//Track the total number of wins for the current scoring system
+  	Count = 0;		//Track the total number of constants (A+B+C) in the fit results
+  	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
+  	Errors = 0;		//A count of the number of unconverged fits, another metric for me to track the fitting
+  	double MyConstants[3];
+  	FitBundle->fdf.params = &MyOpt_Bundle;
+  	for (i=0;i<TransitionstoFit.TriplesCount[0];i++) {
+  		for (j=0;j<TransitionstoFit.TriplesCount[1];j++) {
+  			for (k=0;k<TransitionstoFit.TriplesCount[2];k++) {
+  				//This is why the transitions were extracted. We set the 3 transition's frequencies to those of the triple we're working on and hand it off to the fitter
+				MyOpt_Bundle.TransitionsGSL[0].Frequency = TransitionstoFit.TriplesList[i];
+				MyOpt_Bundle.TransitionsGSL[1].Frequency = TransitionstoFit.TriplesList[j+TransitionstoFit.TriplesCount[0]];
+				MyOpt_Bundle.TransitionsGSL[2].Frequency =  TransitionstoFit.TriplesList[k+TransitionstoFit.TriplesCount[0]+TransitionstoFit.TriplesCount[1]];				
+				FitBundle->fdf.params = &MyOpt_Bundle;															//Set the parameters for this run				
+				//Current problem code for ctypes
+   				gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);	//reInitialize the workspace incase this isnt the first run of the loop  	
+				FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
+  				gsl_multifit_nlinear_driver(50, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 20 iterations
+  				Iterations += gsl_multifit_nlinear_niter (FitBundle->Workspace); 	//Track the iterations
+  				Final = gsl_multifit_nlinear_position(FitBundle->Workspace);		//Snag the results
+  				if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 50) {		//Check for an error, currently only considering non-convergence
+  					printf ("Error: Unconverged Fit: %.4f %.4f %.4f\n",Transitions[0].Frequency,Transitions[1].Frequency,Transitions[2].Frequency);
+  					Errors++;
+  				}
+   				//(*FitResults)[Count] = gsl_vector_get(Final, 0);	//Get the final A
+  				MyConstants[0] = gsl_vector_get(Final, 0);				//Update the constants
+  				Count++;											//Track the number of items in FitResults
+  				//(*FitResults)[Count] = gsl_vector_get(Final, 1);	
+  				MyConstants[1] = gsl_vector_get(Final, 1);
+  				Count++;
+  				//(*FitResults)[Count] = gsl_vector_get(Final, 2);
+  				MyConstants[2] = gsl_vector_get(Final, 2);
+  				Count++;
+  				Get_Catalog (*MyFittingCatalog, MyConstants, CatalogLines,0,MyOpt_Bundle.ETGSL,MyOpt_Bundle.MyDictionary);	//Now we recompute the full catalog, this isnt necessary to complete the fit, but has to be done to score the fit
+  				Sort_Catalog (*MyFittingCatalog,CatalogLines,0,0);					//Catalog is not necessarily sorted, so we sort it
+				TriplesScoreFunction (*MyFittingCatalog,ScoringParameters);
+  			} 
+  		} 
+  	}
+	printf ("%d\n",Count);
+  	printf ("%e %e %e\n",MyConstants[0],MyConstants[1],MyConstants[2]);
+  	printf ("%i average iterations, %i Errors\n",Iterations/(TransitionstoFit.TriplesCount[0]*TransitionstoFit.TriplesCount[1]*TransitionstoFit.TriplesCount[2]),Errors);
+	free(FitResults);
+	return 1;
 }
 
 void callback (const size_t iter, void *params, const gsl_multifit_nlinear_workspace *w)
 {
+//GSL function included in case it's needed for debugging
 gsl_vector *f = gsl_multifit_nlinear_residual(w);
 gsl_vector *x = gsl_multifit_nlinear_position(w);
 double rcond;
@@ -868,116 +927,76 @@ double rcond;
 	fprintf (stderr, "iter %2zu: A = %.4f, B = %.4f, C = %.4f, cond(J) = %8.4f, |f(x)| = %.4f\n", iter, gsl_vector_get(x, 0), gsl_vector_get(x, 1), gsl_vector_get(x, 2), 1.0 / rcond, gsl_blas_dnrm2(f));
 }
 
-void Calculate_State_Energies (struct Level *MyDictionary, struct Transition *SourceCatalog, int CatalogTransitions, int DictionaryLevels, int Verbose)
+int Initialize_SBFIT (struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle)
 {
-//Function to get the energies of levels in a catalog
+size_t p = 3;	//These are the sizes of the parameters and data points
+size_t n = MyOpt_Bundle->TransitionCount;	//Theyre hard coded because all triples fits are 3 parameters and 3 unknowns
+	FitBundle->fdf_params = gsl_multifit_nlinear_default_parameters();
+ 	FitBundle->fdf.f = SBFIT_OptFunc_gsl;
+   	FitBundle->fdf.df = NULL;   //Finite difference Jacobian because there is no general analytic version	
+   	FitBundle->fdf.fvv = NULL;	//No geodesic acceleration, early tests showed no real improvement in using it
+   	FitBundle->fdf.n = n;
+  	FitBundle->fdf.p = p;
+ 	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
+ 	FitBundle->T = gsl_multifit_nlinear_trust;
+ 	FitBundle->Workspace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
+ 	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
+ 	if (MyOpt_Bundle->TransitionsGSL == NULL) MyOpt_Bundle->TransitionsGSL = malloc(MyOpt_Bundle->TransitionCount*sizeof(struct Transition));
+ 	else MyOpt_Bundle->TransitionsGSL = realloc(MyOpt_Bundle->TransitionsGSL,MyOpt_Bundle->TransitionCount*sizeof(struct Transition));
+ 	return 1;
+}
+
+int SBFIT (double *Guess, double *ChiSq, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, double *LineFrequencies, double **FinalConstants)
+{
+int i,info,Success;
+const double xtol = 1e-8;
+const double gtol = 1e-8;
+const double ftol = 1e-1;
+const size_t p = 3;
+gsl_vector *Final;
+gsl_vector_view x;
+  	//LineFrequencies are copied here and not in the initializer so that for cases where you want to fit the same number of lines over and over again you dont need to reinitialize the workspace 
+  	for (i=0;i<MyOpt_Bundle.TransitionCount;i++) MyOpt_Bundle.TransitionsGSL[i].Frequency = LineFrequencies[i];
+  	x = gsl_vector_view_array (Guess, p);															//Set the guess	
+	FitBundle->fdf.params = &MyOpt_Bundle;
+	gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);					//reInitialize the workspace incase this isnt the first run of the loop  	
+	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
+	Success = 1;
+	gsl_multifit_nlinear_driver(200, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 50 iterations
+	Final = gsl_multifit_nlinear_position(FitBundle->Workspace);									//Snag the results
+	if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 200) {
+		printf ("Error: Unconverged Fit\n");
+		Success = 0;
+	}
+	gsl_blas_ddot(FitBundle->f, FitBundle->f, ChiSq);
+	(*FinalConstants)[0] = gsl_vector_get(Final,0);
+	(*FinalConstants)[1] = gsl_vector_get(Final,1);
+	(*FinalConstants)[2] = gsl_vector_get(Final,2);
+	//printf ("A:%.4f B:%.4f C:%.4f\n",gsl_vector_get(Final, 0),gsl_vector_get(Final, 1),gsl_vector_get(Final, 2));
+	return Success;
+}
+
+int SBFIT_OptFunc_gsl (const gsl_vector *x, void *params, gsl_vector *f)
+{
+double GSLConstants[3];	//Declare some doubles to hold our constants
 int i;
-	(MyDictionary[0]).Energy = 0.0;
-	for (i=0;i<CatalogTransitions;i++) (MyDictionary[SourceCatalog[i].Upper]).Energy = (MyDictionary[SourceCatalog[i].Lower]).Energy+SourceCatalog[i].Frequency;	//Keeping the calculation in MHz because it's easier
-	for (i=0;i<DictionaryLevels;i++) {
-		(MyDictionary[i]).Energy *= 4.8E-5;
+	//I dont love doing this, but GSL really only wants one pointer to void for the function parameters. So this is a struct to hold all the things we need for calculating frequencies
+	struct Opt_Bundle *p = (struct Opt_Bundle *) params;
+	GSLConstants[0] = fabs(gsl_vector_get(x, 0));	//Pull these values from the vector
+	GSLConstants[1] = fabs(gsl_vector_get(x, 1));
+	GSLConstants[2] = fabs(gsl_vector_get(x, 2));
+	for (i=0;i<p->TransitionCount;i++) {
+		gsl_vector_set (f, i, Get_Frequency(p->MyDictionary[p->TransitionsGSL[i].Upper].J,
+											p->MyDictionary[p->TransitionsGSL[i].Lower].J,
+											p->TransitionsGSL[i].Upper,
+											p->TransitionsGSL[i].Lower,
+											GSLConstants,p->ETGSL) - p->TransitionsGSL[i].Frequency);
 	}
-	if (Verbose) for (i=0;i<CatalogTransitions;i++) printf ("%d State Energy:%f Upper Index: %d LowerIndex: %d\n", i, (MyDictionary[SourceCatalog[i].Upper]).Energy, SourceCatalog[i].Upper, SourceCatalog[i].Lower);
+	return GSL_SUCCESS;
 }
 
-void Calculate_Intensities (struct Transition *SourceCatalog, int CatalogTransitions, struct Level *MyDictionary, double T, double *Dipoles, int Verbose)
-{
-int i;
-	for (i=0;i<CatalogTransitions;i++) {
-		(SourceCatalog[i]).Intensity = Dipoles[SourceCatalog[i].Type-1]*Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(	exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
-		if (Verbose) printf ("%e %f %f\n",(SourceCatalog[i]).Intensity,(MyDictionary[SourceCatalog[i].Lower]).Energy,(MyDictionary[SourceCatalog[i].Upper]).Energy);
-	}
-}
 
-int Search_DR_Hits (int DRPairs, double ConstStart, double ConstStop, double Step, double *DRFrequency, double Tolerance, int ExtraLineCount, double *ExtraLines, int **DRLinks, int LinkCount, struct Transition *CatalogtoFill, double *Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
-{
-double CurrentA,CurrentB,CurrentC,Count;
-int *Match,i,j,DRMatch,AllLinks,Wins;	
-
-	Match = malloc(DRPairs*sizeof(int));
-	if (Match == NULL) goto Error;
-	CurrentA = ConstStart;
-	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
-	while (CurrentA < ConstStop) {
-		CurrentB = ConstStart;
-		while (CurrentB < ConstStop) {
-			CurrentC = ConstStart;
-			while (CurrentC < ConstStop) {
-				if ((CurrentA > CurrentB) && (CurrentB > CurrentC)) {
-					Count+= 1.0;
-					Constants[0] = CurrentA;
-					Constants[1] = CurrentB;
-					Constants[2] = CurrentC;
-					//Predict and check spectrum
-					Get_Catalog (	CatalogtoFill, 		//Catalog to compute frequencies for
-									Constants, 			//Rotational constants for the calculation
-									CatLines,	//# of transitions in the catalog
-									0,					//Verbose
-									ETStruct,
-									MyDictionary
-					);
-					//printf ("%f %f %f\n",CurrentA,CurrentB,CurrentC);
-					Wins = 0;
-					for (i=0;i<DRPairs;i++) Match[i] = -1;		//Reset our matches to 0
-					for (i=0;i<CatLines;i++) {
-						for (j=0;j<DRPairs;j++) {
-							if (fabs(CatalogtoFill[i].Frequency-DRFrequency[j]) < Tolerance) {
-								Match[j] = i;
-								Wins++;
-							}
-						}
-						for (j=0;j<ExtraLineCount;j++) if (fabs(CatalogtoFill[i].Frequency-ExtraLines[j]) < Tolerance) Wins++;	
-					}
-					for (i=0;i<DRPairs;i++) if (Match[i] < 0) DRMatch = 0;	//If any of our transitions werent matched we bail 
-					DRMatch = 1;
-					AllLinks = 1;
-					if (DRMatch) { 
-						for (i=0;i<LinkCount;i++) {
-							if (!((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper)) {	
-									AllLinks = 0;	
-							}	
-						}
-						if (AllLinks) {
-								//Do something cause at this point we have correctly matched the DR conditions
-						}
-					}					
-				}
-				CurrentC += Step;
-			}
-			CurrentB += Step;
-		}
-		CurrentA += Step;
-	}
-	printf ("%e individual fits performed",Count);
-	free(Match);
-	return 1;
-Error:
-	printf("Error running matching program");
-	return 0;
-}
-
-double DummyFunction (struct Transition *MyCatalog, void *Data)
-{
-	
-	return 1.0;
-}
-
-int Standardize_Catalog (struct Transition *CatalogtoStandardize, int CatLines, int Verbose)
-{
-//Utility function for standardizing a catalog
-int i;	//Declaring i here because I like it, and apparently learned C pre C99Constants
-double Sum,Mean,StdDev;
-	Sum = 0.0;
-	StdDev = 0.0;
-	for(i=0; i<CatLines; ++i) Sum += CatalogtoStandardize[i].Frequency;
-    Mean = Sum/CatLines;
-    for(i=0; i<CatLines; ++i) StdDev += pow(CatalogtoStandardize[i].Frequency - Mean, 2.0);
-    StdDev = sqrt(StdDev/CatLines);
-	for (i=0;i<CatLines;i++) CatalogtoStandardize[i].Frequency = (CatalogtoStandardize[i].Frequency-Mean)/StdDev;
-	if (Verbose) printf ("Catalog Mean: %f\tCatalog Standard Deviation: %f\n",Mean,StdDev);
-	return 1;
-}
-
+////////////////////////////////////
 void Timing_Test(void)
 {
 /*
@@ -1166,112 +1185,6 @@ Error:
 	printf ("Error: Couldn't initialize the timing test\n");	
 }
 
-void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary, int CatalogLines, struct ETauStruct FittingETStruct)
-{
-double *ExpX, *ExpY, *PeakList,GuessConstants[3],*Results;
-int ExperimentalPoints,PeakCount;
-struct Triple TestTriple;
-struct GSL_Bundle TestGSLBundle;
-struct Opt_Bundle TestOptBundle;
-ScoreFunction TestFunction;
-	
-	ExperimentalPoints = Load_Exp_File  (FileName, &ExpX, &ExpY, 1);
-	PeakCount = Peak_Find (&PeakList, 100.0, 0.003, ExpX, ExpY, ExperimentalPoints,0);
-	printf ("Found %d experimental peaks\n", PeakCount);
-	TestTriple.TransitionList[0] = FittingCatalog[400];
-	TestTriple.TransitionList[1] = FittingCatalog[500];
-	TestTriple.TransitionList[2] = FittingCatalog[450];
-	Find_Triples (&TestTriple, PeakList, 100.0, PeakCount);
-	printf ("Found %d %d %d experimental lines for the proposed triple\n",TestTriple.TriplesCount[0],TestTriple.TriplesCount[1],TestTriple.TriplesCount[2]);
-	TestOptBundle.ETGSL = FittingETStruct;
-	TestOptBundle.MyDictionary = FittingDictionary;
-	TestOptBundle.TransitionsGSL[0] = TestTriple.TransitionList[0];
-	TestOptBundle.TransitionsGSL[1] = TestTriple.TransitionList[1];
-	TestOptBundle.TransitionsGSL[2] = TestTriple.TransitionList[2];
-	
-	Initialize_Triples_Fitter (&TestGSLBundle,&TestOptBundle);
-	GuessConstants[0] = 5002.0;
-	GuessConstants[1] = 3004.0;
-	GuessConstants[2] = 1998.0;
-	TestFunction = &DummyFunction;
-	Fit_Triples_Bundle (	TestTriple, 
-							GuessConstants, 
-							&Results, 
-							&FittingCatalog, 
-							CatalogLines, 
-							&TestGSLBundle, 
-							TestOptBundle, 
-							TestFunction, 
-							0 
-						);
-
-}
-
-int Initialize_SBFIT (struct GSL_Bundle *FitBundle, struct Opt_Bundle *MyOpt_Bundle)
-{
-size_t p = 3;	//These are the sizes of the parameters and data points
-size_t n = MyOpt_Bundle->TransitionCount;	//Theyre hard coded because all triples fits are 3 parameters and 3 unknowns
-	FitBundle->fdf_params = gsl_multifit_nlinear_default_parameters();
- 	FitBundle->fdf.f = SBFIT_OptFunc_gsl;
-   	FitBundle->fdf.df = NULL;   //Finite difference Jacobian because there is no general analytic version	
-   	FitBundle->fdf.fvv = NULL;	//No geodesic acceleration, early tests showed no real improvement in using it
-   	FitBundle->fdf.n = n;
-  	FitBundle->fdf.p = p;
- 	FitBundle->fdf_params.trs = gsl_multifit_nlinear_trs_lm;
- 	FitBundle->T = gsl_multifit_nlinear_trust;
- 	FitBundle->Workspace = gsl_multifit_nlinear_alloc (FitBundle->T, &(FitBundle->fdf_params), n, p);
- 	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);
- 	if (MyOpt_Bundle->TransitionsGSL == NULL) MyOpt_Bundle->TransitionsGSL = malloc(MyOpt_Bundle->TransitionCount*sizeof(struct Transition));
- 	else MyOpt_Bundle->TransitionsGSL = realloc(MyOpt_Bundle->TransitionsGSL,MyOpt_Bundle->TransitionCount*sizeof(struct Transition));
- 	return 1;
-}
-
-int SBFIT (double *Guess, double *ChiSq, struct GSL_Bundle *FitBundle, struct Opt_Bundle MyOpt_Bundle, double *LineFrequencies)
-{
-int i,info,Success;
-const double xtol = 1e-8;
-const double gtol = 1e-8;
-const double ftol = 1e-1;
-const size_t p = 3;
-gsl_vector *Final;
-gsl_vector_view x;
-  	//LineFrequencies are copied here and not in the initializer so that for cases where you want to fit the same number of lines over and over again you dont need to reinitialize the workspace 
-  	for (i=0;i<MyOpt_Bundle.TransitionCount;i++) MyOpt_Bundle.TransitionsGSL[i].Frequency = LineFrequencies[i];
-  	x = gsl_vector_view_array (Guess, p);															//Set the guess	
-	FitBundle->fdf.params = &MyOpt_Bundle;
-	gsl_multifit_nlinear_init (&x.vector, &(FitBundle->fdf), FitBundle->Workspace);					//reInitialize the workspace incase this isnt the first run of the loop  	
-	FitBundle->f = gsl_multifit_nlinear_residual(FitBundle->Workspace);								//compute initial cost function
-	Success = 1;
-	gsl_multifit_nlinear_driver(200, xtol, gtol, ftol, NULL, NULL, &info, FitBundle->Workspace);		//solve the system with a maximum of 50 iterations
-	Final = gsl_multifit_nlinear_position(FitBundle->Workspace);									//Snag the results
-	if (gsl_multifit_nlinear_niter (FitBundle->Workspace) == 200) {
-		printf ("Error: Unconverged Fit\n");
-		Success = 0;
-	}
-	gsl_blas_ddot(FitBundle->f, FitBundle->f, ChiSq);
-	//printf ("A:%.4f B:%.4f C:%.4f\n",gsl_vector_get(Final, 0),gsl_vector_get(Final, 1),gsl_vector_get(Final, 2));
-	return Success;
-}
-
-int SBFIT_OptFunc_gsl (const gsl_vector *x, void *params, gsl_vector *f)
-{
-double GSLConstants[3];	//Declare some doubles to hold our constants
-int i;
-	//I dont love doing this, but GSL really only wants one pointer to void for the function parameters. So this is a struct to hold all the things we need for calculating frequencies
-	struct Opt_Bundle *p = (struct Opt_Bundle *) params;
-	GSLConstants[0] = fabs(gsl_vector_get(x, 0));	//Pull these values from the vector
-	GSLConstants[1] = fabs(gsl_vector_get(x, 1));
-	GSLConstants[2] = fabs(gsl_vector_get(x, 2));
-	for (i=0;i<p->TransitionCount;i++) {
-		gsl_vector_set (f, i, Get_Frequency(p->MyDictionary[p->TransitionsGSL[i].Upper].J,
-											p->MyDictionary[p->TransitionsGSL[i].Lower].J,
-											p->TransitionsGSL[i].Upper,
-											p->TransitionsGSL[i].Lower,
-											GSLConstants,p->ETGSL) - p->TransitionsGSL[i].Frequency);
-	}
-	return GSL_SUCCESS;
-}
-
 void Test_SBFIT (void)
 {
 double GuessConstants[3], RealConstants[3], Dipoles[3], ChiSqr;
@@ -1327,5 +1240,122 @@ struct Opt_Bundle TestOptBundle;
   	
 	free(FittingFrequencies);	
 }
+
+void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary, int CatalogLines, struct ETauStruct FittingETStruct)
+{
+double *ExpX, *ExpY, *PeakList,GuessConstants[3],*Results;
+int ExperimentalPoints,PeakCount;
+struct Triple TestTriple;
+struct GSL_Bundle TestGSLBundle;
+struct Opt_Bundle TestOptBundle;
+ScoreFunction TestFunction;
+	
+	ExperimentalPoints = Load_Exp_File  (FileName, &ExpX, &ExpY, 1);
+	PeakCount = Peak_Find (&PeakList, 100.0, 0.003, ExpX, ExpY, ExperimentalPoints,0);
+	printf ("Found %d experimental peaks\n", PeakCount);
+	TestTriple.TransitionList[0] = FittingCatalog[400];
+	TestTriple.TransitionList[1] = FittingCatalog[500];
+	TestTriple.TransitionList[2] = FittingCatalog[450];
+	Find_Triples (&TestTriple, PeakList, 100.0, PeakCount);
+	printf ("Found %d %d %d experimental lines for the proposed triple\n",TestTriple.TriplesCount[0],TestTriple.TriplesCount[1],TestTriple.TriplesCount[2]);
+	TestOptBundle.ETGSL = FittingETStruct;
+	TestOptBundle.MyDictionary = FittingDictionary;
+	TestOptBundle.TransitionsGSL[0] = TestTriple.TransitionList[0];
+	TestOptBundle.TransitionsGSL[1] = TestTriple.TransitionList[1];
+	TestOptBundle.TransitionsGSL[2] = TestTriple.TransitionList[2];
+	
+	Initialize_Triples_Fitter (&TestGSLBundle,&TestOptBundle);
+	GuessConstants[0] = 5002.0;
+	GuessConstants[1] = 3004.0;
+	GuessConstants[2] = 1998.0;
+	TestFunction = &DummyFunction;
+	Fit_Triples_Bundle (	TestTriple, 
+							GuessConstants, 
+							&Results, 
+							&FittingCatalog, 
+							CatalogLines, 
+							&TestGSLBundle, 
+							TestOptBundle, 
+							TestFunction, 
+							0 
+						);
+
+}
+
+double DummyFunction (struct Transition *MyCatalog, void *Data)
+{
+	
+	return 1.0;
+}
+
+////////////////////////////////////
+int Search_DR_Hits (int DRPairs, double ConstStart, double ConstStop, double Step, double *DRFrequency, double Tolerance, int ExtraLineCount, double *ExtraLines, int **DRLinks, int LinkCount, struct Transition *CatalogtoFill, double *Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
+{
+double CurrentA,CurrentB,CurrentC,Count;
+int *Match,i,j,DRMatch,AllLinks,Wins;	
+
+	Match = malloc(DRPairs*sizeof(int));
+	if (Match == NULL) goto Error;
+	CurrentA = ConstStart;
+	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
+	while (CurrentA < ConstStop) {
+		CurrentB = ConstStart;
+		while (CurrentB < ConstStop) {
+			CurrentC = ConstStart;
+			while (CurrentC < ConstStop) {
+				if ((CurrentA > CurrentB) && (CurrentB > CurrentC)) {
+					Count+= 1.0;
+					Constants[0] = CurrentA;
+					Constants[1] = CurrentB;
+					Constants[2] = CurrentC;
+					//Predict and check spectrum
+					Get_Catalog (	CatalogtoFill, 		//Catalog to compute frequencies for
+									Constants, 			//Rotational constants for the calculation
+									CatLines,	//# of transitions in the catalog
+									0,					//Verbose
+									ETStruct,
+									MyDictionary
+					);
+					//printf ("%f %f %f\n",CurrentA,CurrentB,CurrentC);
+					Wins = 0;
+					for (i=0;i<DRPairs;i++) Match[i] = -1;		//Reset our matches to 0
+					for (i=0;i<CatLines;i++) {
+						for (j=0;j<DRPairs;j++) {
+							if (fabs(CatalogtoFill[i].Frequency-DRFrequency[j]) < Tolerance) {
+								Match[j] = i;
+								Wins++;
+							}
+						}
+						for (j=0;j<ExtraLineCount;j++) if (fabs(CatalogtoFill[i].Frequency-ExtraLines[j]) < Tolerance) Wins++;	
+					}
+					for (i=0;i<DRPairs;i++) if (Match[i] < 0) DRMatch = 0;	//If any of our transitions werent matched we bail 
+					DRMatch = 1;
+					AllLinks = 1;
+					if (DRMatch) { 
+						for (i=0;i<LinkCount;i++) {
+							if (!((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper)) {	
+									AllLinks = 0;	
+							}	
+						}
+						if (AllLinks) {
+								//Do something cause at this point we have correctly matched the DR conditions
+						}
+					}					
+				}
+				CurrentC += Step;
+			}
+			CurrentB += Step;
+		}
+		CurrentA += Step;
+	}
+	printf ("%e individual fits performed",Count);
+	free(Match);
+	return 1;
+Error:
+	printf("Error running matching program");
+	return 0;
+} 
+ 
+
 
 #endif /* __FITTER_H__ */
