@@ -150,9 +150,9 @@ class AsymmetricMolecule:
         Method to set up the ctypes and pointers prior to spinning up
         the simulations.
         """
-		dipoles = self._constantsType(self.dipoles)
-		self.FitterLib.Calculate_Intensities (
-			BaseCatalog, #CatalogTransitions, BaseDict, 3.0, Dipoles);(
+        dipoles = self._constantsType(self.dipoles)
+        self.FitterLib.Calculate_Intensities (
+        BaseCatalog, #CatalogTransitions, BaseDict, 3.0, Dipoles);(
             self.catalog,
             self._statecount,
             self.levels,
