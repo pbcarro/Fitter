@@ -1209,10 +1209,8 @@ struct Opt_Bundle TestOptBundle;
 	Dipoles[2] = 1.0;
 	
 	FrequencyCount = 10;
-	FitConstants = malloc(3*sizeof(double));
-		
+	FitConstants = malloc(3*sizeof(double));	
 	Initialize_Stuff(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog);
-	
 	Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
 					RealConstants, 			//Rotational constants for the calculation
 					CatalogTransitions,	//# of transitions in the catalog
@@ -1220,10 +1218,8 @@ struct Opt_Bundle TestOptBundle;
 					ETStruct,
 					BaseDict
 	);
-	
 	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
-	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 2.0, Dipoles,0);
-	
+	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 2.0, Dipoles,0);	
 	JRestrictedLines = Fill_Catalog_Restricted_J (BaseCatalog, &JRestricted, RealConstants, CatalogTransitions, 0, 10, 0, BaseDict);
 	IntRestrictedLines = Fill_Catalog_Restricted_Intensity_Count (JRestricted, &IntRestricted, RealConstants, JRestrictedLines, FrequencyCount, 0, BaseDict);
 	FittingFrequencies = malloc(FrequencyCount*sizeof(double));
@@ -1235,13 +1231,10 @@ struct Opt_Bundle TestOptBundle;
 		FittingFrequencies[i] = IntRestricted[i].Frequency;
 		TestOptBundle.TransitionsGSL[i] = IntRestricted[i];
 	}
-
-
   	SBFIT (GuessConstants, &ChiSqr, &TestGSLBundle, TestOptBundle, FittingFrequencies, &FitConstants);
-  	
+  	printf ("Fit to constants %f %f %f with a chi squared of %f\n", FitConstants[0],FitConstants[1],FitConstants[2],ChiSqr);
 	free(FittingFrequencies);
 	free(FitConstants);
-	
 }
 
 void Test_Triples (char *FileName, struct Transition *FittingCatalog, struct Level *FittingDictionary, int CatalogLines, struct ETauStruct FittingETStruct)
