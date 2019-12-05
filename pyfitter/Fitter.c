@@ -27,6 +27,8 @@ gcc -Wall -o Fitter.so -shared -fPIC -O3 -funroll-loops Fitter.c -lm -lgsl -lgsl
 int main (int argc, char *argv[])
 {
 	Test_SBFIT();
+	Timing_Test();
+	Accuracy_Test();	
 	return 1;
 }
 
