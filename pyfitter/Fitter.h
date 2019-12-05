@@ -82,7 +82,7 @@ double Partition_Function (double */*Constants*/, double /*Temperature*/);
 double E_tau (int /*TransitionIndex*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/);
 double Rigid_Rotor (double /*A*/, double /*C*/, int /*J*/, int /*Index*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/);
 double Get_Frequency (int /*J_Up*/, int /*J_Low*/, int /*IndexUp*/, int /*IndexLow*/, double */*Constants*/, struct ETauStruct /*ETStruct*/);
-int Get_Catalog (struct Transition */*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
+int Get_Catalog (struct Transition * restrict/*CatalogtoFill*/, double * restrict/*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
 
 //General catalog functions
 void print_Transition (struct Transition /*TransitionToPrint*/, struct Level */*MyDictionary*/);
@@ -113,11 +113,12 @@ int SBFIT (double */*Guess*/, double */*ChiSq*/, struct GSL_Bundle */*FitBundle*
 int SBFIT_OptFunc_gsl (const gsl_vector * /*x*/, void * /*params*/, gsl_vector * /*f*/);
 
 //New Functions
-int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
+int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level * /*MyDictionary*/, char * /*FileName*/);
+
 
 //Test Functions
-void Timing_Test(void);
-void Accuracy_Test(void);
+int Timing_Test(void);
+int Accuracy_Test(void);
 void Test_SBFIT (void);
 void Test_Triples (char *, struct Transition *, struct Level *, int /*CatalogLines*/, struct ETauStruct /*FittingETStruct*/);
 double DummyFunction (struct Transition */*MyCatalog*/, void */*Data*/);
@@ -453,7 +454,7 @@ double Kappa;
 	return fabs(Rigid_Rotor(Constants[0],Constants[2],J_Up,IndexUp,Kappa,ETStruct)-Rigid_Rotor(Constants[0],Constants[2],J_Low,IndexLow,Kappa,ETStruct));
 }
 
-int Get_Catalog (struct Transition *CatalogtoFill, double *Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
+int Get_Catalog (struct Transition *restrict CatalogtoFill, double *restrict Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
 {
 //Utility function for calculating frequencies of a catalog
 int i;	//Declaring i here because I like it, and apparently learned C pre C99Constants
@@ -997,7 +998,7 @@ int i;
 
 
 ////////////////////////////////////
-void Timing_Test(void)
+int Timing_Test(void)
 {
 /*
 	Test Code - Speed test
@@ -1103,11 +1104,13 @@ int i,j;
     StdDev = sqrt(StdDev/TimingLoops);
 	printf ("Average Time:%f, Standard Deviation:%f\n",Mean,StdDev);	
 	free(Timing);
+	return 1;
 Error:
 	printf ("Error: Couldn't initialize the timing test\n");	
+	return 0;
 }
 
-void Accuracy_Test(void)
+int Accuracy_Test(void)
 {
 /*
 	Test Code - Accuracy test
@@ -1181,8 +1184,11 @@ FILE *FileHandle;
 		fprintf (FileHandle,"%.12f %i %i %i  %i %i %i\n",TransitionToPrint.Frequency, BaseDict[TransitionToPrint.Upper].J,BaseDict[TransitionToPrint.Upper].Ka,BaseDict[TransitionToPrint.Upper].Kc,BaseDict[TransitionToPrint.Lower].J,BaseDict[TransitionToPrint.Lower].Ka,BaseDict[TransitionToPrint.Lower].Kc);
 	}
 	fclose(FileHandle);
+	return 1;
+	
 Error:
-	printf ("Error: Couldn't initialize the timing test\n");	
+	printf ("Error: Couldn't initialize the accuracy test\n");	
+	return 0;
 }
 
 void Test_SBFIT (void)
@@ -1285,15 +1291,95 @@ double DummyFunction (struct Transition *MyCatalog, void *Data)
 }
 
 ////////////////////////////////////
-int Search_DR_Hits (int DRPairs, double ConstStart, double ConstStop, double Step, double *DRFrequency, double Tolerance, int ExtraLineCount, double *ExtraLines, int **DRLinks, int LinkCount, struct Transition *CatalogtoFill, double *Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
+int Search_DR_Hits (int DRPairs, double ConstStart, double ConstStop, double Step, double *DRFrequency, double Tolerance, int ExtraLineCount, double *ExtraLines, int **DRLinks, int LinkCount, struct Transition *CatalogtoFill, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary, char *FileName)
 {
-double CurrentA,CurrentB,CurrentC,Count;
-int *Match,i,j,DRMatch,AllLinks,Wins;	
+/*Function to find rotational constants through an arbitrary set of DR links
+Inputs:
+DRPairs - The number of DR transitions to be searched
+ConstStart (MHz) - Value to start searching in A, B, and C
+ConstStop (MHz)  - Value to stop searching in A, B, and C 
+Step (MHz) - Step to take in A, B, and C
+DRFrequency (MHz) - List of DR frequencies to match, should have a length equal to DRPairs
+Tolerance (MHz) - How much error to allow between an experimental frequency and a predicted catalog line to consider it a match. Since it's absolute value match condition is +/-Tolerance
+ExtraLineCount -  User can feed extra experimental lines as a constraint even if not part of the DR match set. If given we do additional scoring based on number of matches to this 
+ExtraLines (MHz) - List of the extra experimental lines. Should be the same length as ExtraLineCount
+DRLinks - 2D array, listing the linkages between states. Array shape should be DRLinks[LinkCount][2] so that DRLink[x][0] is the first transition and DRLink[x][1] is the second, 0 and 1 should be integers between 0 and DRPairs that tell the program which two transitions it's matching
+LinkCount -  Number of DR linkages to deal with
+CatalogtoFill - Catalog used for matching
+CatLines - Number of lines in the catalog
+Verbose - Flag for printing more verbose inforamtion from the function
+ETStruct - Eigenvalue struct passed so we can do fitting in the function
+MyDictionary - Catalog dictionary passed for fitting and printing
 
-	Match = malloc(DRPairs*sizeof(int));
-	if (Match == NULL) goto Error;
+
+Todo:
+-Test Sorted searches
+
+*/
+double CurrentA,CurrentB,CurrentC,Count,ChiSqr;
+double Constants[3],*FitConstants;
+int *Match,**MatchArrays,i,j,k,DRMatch,AllLinks,Wins,LocalLink,MatchLimit,MatchCount,StartJ,StartK;
+int ***MatchRecord; //Record all of our matches in one place || MatchRecord[Match][Link][Upper/Lower]
+struct GSL_Bundle MyGSLBundle;
+struct Opt_Bundle MyOptBundle;
+FILE *FileHandle;
+
+	MatchLimit = 100;
+	MatchRecord = malloc (MatchLimit*sizeof(int **));
+	for (i=0;i<MatchLimit;i++) {
+		MatchRecord[i] = malloc (LinkCount*sizeof(int *));
+		for (j=0;j<LinkCount;j++) MatchRecord[i][j] = malloc(2*sizeof(int));
+	}
+
+	//Error checking of inputs, shouldnt be an issue but still
+	if (ConstStart < 0.0) {
+		if (Verbose) printf ("Starting constants set too low, defaulting to 1GHz\n");
+		ConstStart = 1000.0;
+	}
+	if (ConstStop < 0.0) {
+		if (Verbose) printf ("Stopping constants set too low, defaulting to 10GHz\n");
+		ConstStart = 10000.0;
+	}
+	if (Step < 0.0) {
+		if (Verbose) printf ("Step set too low, defaulting to 10MHz\n");
+		ConstStart = 10.0;
+	}
+	if (Tolerance < 0.0) {
+		if (Verbose) printf ("Tolerance set too low, defaulting to 20MHz\n");
+		ConstStart = 20.0;
+	}
+	FileHandle = fopen(FileName,"a");
+	if (FileHandle == NULL) goto Error;
+
+	//Initialize the GSL fitter
+	if (DRPairs >= 3) {
+		MyOptBundle.ETGSL = ETStruct;
+		MyOptBundle.MyDictionary = MyDictionary;
+		MyOptBundle.TransitionsGSL = NULL;
+		MyOptBundle.TransitionCount = DRPairs;
+		Initialize_SBFIT (&MyGSLBundle, &MyOptBundle);	
+	}
+
+	//Verbose startup 
+	if (Verbose) {
+		printf ("Grid Search from %.2f MHz to %.2f MHz in %.2f MHz steps, %.2e total catalogs\n", ConstStart,ConstStop,Step, (double) pow((ConstStop-ConstStart)/Step,3.0)/6.0);
+		if ((DRPairs <=3) && (ExtraLineCount < 1)) {
+			printf ("Insufficient information given, either give extra lines to score against or more DR links\n");
+			return;
+		} else {
+			if (DRPairs <= 3) printf ("Not enough DR pairs for fitting, will match only against extra lines\n");
+			if (ExtraLineCount < 1) printf ("No extra lines supplied, can only score by fitting\n");
+		}
+	}
+
+	FitConstants = malloc (3*sizeof(double));
+	Match = malloc(DRPairs*sizeof(int));	//Array of yes/no to track if each of the DR frequencies has a matching catalog transition or not
+	if (Match == NULL) goto Error;	//Basic but overkill error checking
+	MatchArrays = malloc (DRPairs*sizeof(int *));	//Array to store all the potential matches for each DR frequency
+	for (i=0;i<DRPairs;i++) MatchArrays[i] = malloc(100*sizeof(Match)); //Each of these arrays stores the matches for each DR line, can currently match up to 100 catalog lines per DR frequency. Hard coded limit for now cause over 100 is a lot
 	CurrentA = ConstStart;
-	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
+	Count = 0.0;	//Tracking the number of counts we perform, using doubles to prevent int overflow
+	clock_t start = clock();
 	while (CurrentA < ConstStop) {
 		CurrentB = ConstStart;
 		while (CurrentB < ConstStop) {
@@ -1305,38 +1391,105 @@ int *Match,i,j,DRMatch,AllLinks,Wins;
 					Constants[1] = CurrentB;
 					Constants[2] = CurrentC;
 					//Predict and check spectrum
-					Get_Catalog (	CatalogtoFill, 		//Catalog to compute frequencies for
-									Constants, 			//Rotational constants for the calculation
+					Get_Catalog (	CatalogtoFill, //Catalog to compute frequencies for
+									Constants, //Rotational constants for the calculation
 									CatLines,	//# of transitions in the catalog
-									0,					//Verbose
+									0,	//Verbose
 									ETStruct,
 									MyDictionary
 					);
-					//printf ("%f %f %f\n",CurrentA,CurrentB,CurrentC);
-					Wins = 0;
-					for (i=0;i<DRPairs;i++) Match[i] = -1;		//Reset our matches to 0
+					for (i=0;i<DRPairs;i++) Match[i] = 0;	//Reset our matches to 0
+					//Brute force check to see if our DR lines exist in the catalog, may be faster to check after a sort, need to try
 					for (i=0;i<CatLines;i++) {
 						for (j=0;j<DRPairs;j++) {
 							if (fabs(CatalogtoFill[i].Frequency-DRFrequency[j]) < Tolerance) {
-								Match[j] = i;
-								Wins++;
+								MatchArrays[j][Match[j]] = i;
+								Match[j]++;
 							}
 						}
-						for (j=0;j<ExtraLineCount;j++) if (fabs(CatalogtoFill[i].Frequency-ExtraLines[j]) < Tolerance) Wins++;	
 					}
-					for (i=0;i<DRPairs;i++) if (Match[i] < 0) DRMatch = 0;	//If any of our transitions werent matched we bail 
 					DRMatch = 1;
-					AllLinks = 1;
+					for (i=0;i<DRPairs;i++) if (Match[i] <= 0) DRMatch = 0;	//If any of our transitions werent matched we bail  
+					for (i=0;i<MatchLimit;i++) {
+						for (j=0;j<LinkCount;j++) {
+							MatchRecord[i][j][0] = 0;
+							MatchRecord[i][j][1] = 0;
+						}
+					}
+					MatchCount = 0;
+					
+					//Code in test
+					AllLinks = 0;
 					if (DRMatch) { 
-						for (i=0;i<LinkCount;i++) {
-							if (!((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Upper == (CatalogtoFill)[Match[DRLinks[1][i]]].Lower) || ((CatalogtoFill)[Match[DRLinks[0][i]]].Lower == (CatalogtoFill)[Match[DRLinks[1][i]]].Upper)) {	
-									AllLinks = 0;	
-							}	
+						i=0;
+						//Assuming >2 links, need to add an error check for this before we start
+						while (i<LinkCount) {	
+							//Iterate through all matched levels for this linkage
+							LocalLink = 0;	//Start by assuming there is no link between lvls
+							if (MatchCount > 0) {
+								StartJ = MatchRecord[MatchCount-1][i][0];
+								StartK = MatchRecord[MatchCount-1][i][1];
+							}else {
+								StartJ = 0;
+								StartK = 0;
+							}
+							for (j=StartJ;j<Match[DRLinks[i][0]];j++) {
+								for (k=StartK;k<Match[DRLinks[i][1]];k++) {
+									//If any link works we count it as a win
+									if (Match_Levels(MatchArrays[DRLinks[i][0]][j], MatchArrays[DRLinks[i][1]][k], CatalogtoFill) ) {
+										LocalLink = 1;
+										MatchRecord[MatchCount][i][0] = MatchArrays[DRLinks[i][0]][j];
+										MatchRecord[MatchCount][i][1] = MatchArrays[DRLinks[i][1]][k];
+										break;
+									} 
+								}
+							}
+							//If a match was found within the set, we proceed, if not 
+							if (LocalLink) {
+								i++;
+								if (i == LinkCount) {
+									AllLinks = 1;
+									MatchCount++;
+								}
+							} else break;
 						}
-						if (AllLinks) {
-								//Do something cause at this point we have correctly matched the DR conditions
+					}
+					if (AllLinks) {
+						if (DRLinks >=3) {
+							for (i=0;i<LinkCount;i++) {
+								MyOptBundle.TransitionsGSL[DRLinks[i][0]] = CatalogtoFill[MatchRecord[0][i][0]];
+								MyOptBundle.TransitionsGSL[DRLinks[i][1]] = CatalogtoFill[MatchRecord[0][i][1]];
+							}
+							SBFIT2 (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, DRFrequency, &FitConstants);
+							if ((ChiSqr/DRPairs) < 0.1) {
+								Get_Catalog (	CatalogtoFill, //Catalog to compute frequencies for
+												Constants, //Rotational constants for the calculation
+												CatLines,	//# of transitions in the catalog
+												0,	//Verbose
+												ETStruct,
+												MyDictionary
+												);
+								Wins = 0;
+								for (i=0;i<ExtraLineCount;i++) {
+									for (j=0;j<CatLines;j++) {
+										if (fabs(CatalogtoFill[j].Frequency-ExtraLines[i]) < (Tolerance/100.0)) {
+											Wins++;
+										}
+									}
+								}
+								if (ExtraLineCount) {
+									if (Wins > 3) {
+										fprintf (FileHandle, "Fitted constants A:%f B:%f C:%f ChiSqr:%f\n",FitConstants[0],FitConstants[1],FitConstants[2],ChiSqr);
+									}
+								} else {
+									fprintf (FileHandle, "Fitted constants A:%f B:%f C:%f ChiSqr:%f\n",FitConstants[0],FitConstants[1],FitConstants[2],ChiSqr);
+								}	
+							}
+						} else {
+							//Working with only 2 DR links
+					
 						}
-					}					
+					}
 				}
 				CurrentC += Step;
 			}
@@ -1344,13 +1497,19 @@ int *Match,i,j,DRMatch,AllLinks,Wins;
 		}
 		CurrentA += Step;
 	}
-	printf ("%e individual fits performed",Count);
+	clock_t end = clock();
+	double Timing = (double)(end - start) / CLOCKS_PER_SEC;
+	printf ("%e individual fits performed in %.2fs\n",Count,Timing);
 	free(Match);
+	free(FitConstants);
+	for (i=-0;i<DRPairs;i++) free(MatchArrays[i]);
+	free(MatchArrays);
+	fclose(FileHandle);
 	return 1;
 Error:
 	printf("Error running matching program");
 	return 0;
-} 
+}
  
 
 
