@@ -114,7 +114,7 @@ int SBFIT_OptFunc_gsl (const gsl_vector * /*x*/, void * /*params*/, gsl_vector *
 
 //New Functions
 int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level * /*MyDictionary*/, char * /*FileName*/);
-
+int Match_Levels (int /*Match1*/, int /*Match2*/, struct Transition * /*MatchCatalog*/);
 
 //Test Functions
 int Timing_Test(void);
@@ -1365,7 +1365,7 @@ FILE *FileHandle;
 		printf ("Grid Search from %.2f MHz to %.2f MHz in %.2f MHz steps, %.2e total catalogs\n", ConstStart,ConstStop,Step, (double) pow((ConstStop-ConstStart)/Step,3.0)/6.0);
 		if ((DRPairs <=3) && (ExtraLineCount < 1)) {
 			printf ("Insufficient information given, either give extra lines to score against or more DR links\n");
-			return;
+			return 0;
 		} else {
 			if (DRPairs <= 3) printf ("Not enough DR pairs for fitting, will match only against extra lines\n");
 			if (ExtraLineCount < 1) printf ("No extra lines supplied, can only score by fitting\n");
@@ -1455,12 +1455,12 @@ FILE *FileHandle;
 						}
 					}
 					if (AllLinks) {
-						if (DRLinks >=3) {
+						if (DRPairs >=3) {
 							for (i=0;i<LinkCount;i++) {
 								MyOptBundle.TransitionsGSL[DRLinks[i][0]] = CatalogtoFill[MatchRecord[0][i][0]];
 								MyOptBundle.TransitionsGSL[DRLinks[i][1]] = CatalogtoFill[MatchRecord[0][i][1]];
 							}
-							SBFIT2 (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, DRFrequency, &FitConstants);
+							SBFIT (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, DRFrequency, &FitConstants);
 							if ((ChiSqr/DRPairs) < 0.1) {
 								Get_Catalog (	CatalogtoFill, //Catalog to compute frequencies for
 												Constants, //Rotational constants for the calculation
@@ -1511,6 +1511,14 @@ Error:
 	return 0;
 }
  
+int Match_Levels (int Match1, int Match2, struct Transition *MatchCatalog) 
+{
+	if (((MatchCatalog)[Match1].Upper == (MatchCatalog)[Match2].Upper) || ((MatchCatalog)[Match1].Lower == (MatchCatalog)[Match2].Lower) || ((MatchCatalog)[Match1].Upper == (MatchCatalog)[Match2].Lower) || ((MatchCatalog)[Match1].Lower == (MatchCatalog)[Match2].Upper)) {
+		return 1;
+	} else {
+		return 0;
+	}
+} 
 
 
 #endif /* __FITTER_H__ */
