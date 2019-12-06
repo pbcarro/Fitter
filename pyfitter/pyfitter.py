@@ -97,13 +97,13 @@ class AsymmetricMolecule:
                 raise Exception(f"{path} table not found!")
             self.string_buffers[name] = create_string_buffer(bytes(check_path))
         # Load the base catalog dictionary
-        self.FitterLib.Load_Base_Catalog_Dictionary(
+        self._statecount = self.FitterLib.Load_Base_Catalog_Dictionary(
             self.string_buffers["catdict"],
             byref(self.levels),
             self._verbose
         )
         # Load the base catalog
-        self._statecount = self.FitterLib.Load_Base_Catalog(
+        self._transitioncount = self.FitterLib.Load_Base_Catalog(
             self.string_buffers["catalog"],
             byref(self.catalog),
             self._verbose
@@ -115,8 +115,9 @@ class AsymmetricMolecule:
             byref(self._etstatecount),
             self.verbose
         )
-        if (self._etstatecount != self._statecount):
-        	print ("Warning: Catalog and Dictionary have different ")
+        if (self._etstatecount.value != self._statecount):
+        	print ("Warning: Catalog and Dictionary have different numbers of states")
+        	print (self._etstatecount,self._statecount)
 
     def _load_library(self):
         """
@@ -137,7 +138,7 @@ class AsymmetricMolecule:
         the simulations.
         """
         self._statepoints = c_int(0)
-        self._statecount = c_int(0)
+        self._transitioncount = c_int(0)
         self._etstatecount = c_int(0)
         self._verbose = c_int(int(self.verbose))
         self._constantsType = c_double * 3
@@ -154,7 +155,7 @@ class AsymmetricMolecule:
         self.FitterLib.Calculate_Intensities (
         BaseCatalog, #CatalogTransitions, BaseDict, 3.0, Dipoles);(
             self.catalog,
-            self._statecount,
+            self._transitioncount,
             self.levels,
             self.temperature,
            	dipoles
@@ -180,13 +181,13 @@ class AsymmetricMolecule:
         if self.verbose:
             print(f"Simulating with A, B, C: {constants}")
             print("Debugging information:")
-            print(f"StateCount: {self._statecount}")
+            print(f"StateCount: {self._transitioncount}")
         c_constants = self._constantsType(*constants)
         # Run the catalog simulation
         self.FitterLib.Get_Catalog(
             self.catalog,
             c_constants,
-            self._statecount,
+            self._transitioncount,
             self._verbose,
             self.et,
             self.levels
@@ -264,8 +265,8 @@ class AsymmetricMolecule:
         table = list()
         # This loop is explicitly done non-Pythonically; iterating over a
         # Pointer will continue until it breaks itself in a segfault, and
-        # the attribute `_statecount` holds the correct number of transitions.
-        for index in range(self._statecount):
+        # the attribute `_transitioncount` holds the correct number of transitions.
+        for index in range(self._transitioncount):
             transition = self.catalog[index]
             ustate = self.levels[transition.Upper]
             lstate = self.levels[transition.Lower]
