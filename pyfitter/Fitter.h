@@ -257,7 +257,7 @@ FILE *FileHandle;
 	if (Verbose) printf ("Loaded %d transitions from the Base Catalog File: %s\n",i,FileName);
 	fclose (FileHandle);												//Not currently checking to see if fclose works, shouldnt affect file load and theres not much to be done if there is an error, the file stream should close when the program ends so hopefully this wont matter														//i is incremented at the end when the EOF occurs which doesnt represent real data so it gets fixed 								
 	*BaseCatalog = realloc(*BaseCatalog,i*sizeof(struct Transition));
-	return i;
+	return i;	//Return the number of states in the catalog
 Error:
 	printf ("Error loading Base Catalog file %s\n",FileName);
 	return -1;
