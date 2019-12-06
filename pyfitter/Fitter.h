@@ -1372,6 +1372,10 @@ FILE *FileHandle;
 		}
 	}
 
+	fprintf (FileHandle, "Constants Start :%f Constants Stop :%f Constants Step :%f Tolerance %f\n",ConstStart,ConstStop,Step,Tolerance);
+	fprintf (FileHandle, "%d DR lines supplied, %d links between them, %d extra lines supplied",DRPairs,ExtraLineCount,LinkCount);
+	
+	
 	FitConstants = malloc (3*sizeof(double));
 	Match = malloc(DRPairs*sizeof(int));	//Array of yes/no to track if each of the DR frequencies has a matching catalog transition or not
 	if (Match == NULL) goto Error;	//Basic but overkill error checking
