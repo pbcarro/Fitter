@@ -77,6 +77,10 @@ int Save_MultiSave (char * /*FileName*/, int /*Size*/, struct MultiSave * /*Save
 int Build_Axis_Linear (struct Axis * /*TargetAxis*/, double /*AxisStart*/, double /*AxisStepSize*/, unsigned int /*AxisSteps*/);
 int Build_Cube_Linear (struct Cube * /*TargetCube*/, double * /*AxisStart*/, double * /*AxisStepSize*/, unsigned int * /*AxisSteps*/);
 
+
+
+double Factorial (int /*Input*/);
+
 //=============Functions========================
 
 double Brute_Force (double CostantsStart, double CosntantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod)
@@ -667,6 +671,16 @@ int Build_Cube_Linear (struct Cube *TargetCube, double *AxisStart, double *AxisS
 	Build_Axis_Linear (&(TargetCube->AAxis),AxisStart[1],AxisStepSize[1],AxisSteps[1]);
 	Build_Axis_Linear (&(TargetCube->AAxis),AxisStart[2],AxisStepSize[2],AxisSteps[2]);
 	return 1;	
+}
+
+double Factorial (int Input) 
+{
+//Basic function to compute the factorial of an integer input
+double n;
+int i;
+	n = 1;
+	for (i=1;i<=Input;i++) n= (double) n*i;
+	return n;
 }
 
 #endif /* __BRUTE_FORCE_H__ */
