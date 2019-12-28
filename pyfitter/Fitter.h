@@ -77,6 +77,7 @@ int Load_Exp_File  (char */*FileName*/, double **/*X*/, double **/*Y*/, int /*Ve
 
 //Frequency predicting functions
 double Get_Kappa (double /*A*/, double /*B*/, double /*C*/);  
+double Get_Delta (double /*A*/, double /*B*/, double /*C*/);
 int Get_J (int /*TransitionIndex*/, struct Level */*MyDictionary*/);
 double Partition_Function (double */*Constants*/, double /*Temperature*/);
 double E_tau (int /*TransitionIndex*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/);
@@ -347,6 +348,12 @@ double Get_Kappa (double A, double B, double C)
 {
 	//Computes Ray's asymmetry parameter
 	return ((2.0*B-A-C)/(A-C));		
+}
+
+double Get_Delta (double A, double B, double C)
+{
+	//Function to get the inertial defect 
+	return 505379.009*((1.0/C)-(1.0/B)-(1.0/A));
 }
 
 int Get_J (int TransitionIndex, struct Level *MyDictionary)
