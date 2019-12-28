@@ -310,7 +310,7 @@ double Brute_Force_Fit (double ConstantsStart, double ConstantsStop, double Cons
 //Variant of the Brute Force search that takes an array of values for the constants so you can use nonlinear steps for more effective searches
 double CurrentA,CurrentB,CurrentC,Wins,Count,Timing,ChiSqr;
 double Constants[3];
-double *FittingFrequencies;
+double *FittingFrequencies,*FittedConstants;
 int i,BadFits;
 struct GSL_Bundle MyGSLBundle;
 struct Opt_Bundle MyOptBundle;
@@ -321,7 +321,7 @@ struct Opt_Bundle MyOptBundle;
 	CurrentA = ConstantsStart;
 	clock_t begin = clock();
 	FittingFrequencies = malloc(sizeof(double));
-	
+	FittedConstants = malloc(3*sizeof(double));
 	
 	MyOptBundle.ETGSL = ETStruct;
 	MyOptBundle.MyDictionary = SearchingDictionary;
@@ -369,7 +369,7 @@ struct Opt_Bundle MyOptBundle;
 						FittingFrequencies = realloc(FittingFrequencies,Wins*sizeof(double));
 						if (FittingFrequencies == NULL) goto Error;
 						Find_Wins_No_Double_Nearest (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance, &(MyOptBundle.TransitionsGSL), Wins, &FittingFrequencies);
-						if (!SBFIT (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, FittingFrequencies)) BadFits++;
+						if (!SBFIT (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, FittingFrequencies, &FittedConstants)) BadFits++;
 						Wins = ChiSqr;
 						if (Wins < Saves[0].Score) {
 							Saves[0].Score = Wins;
@@ -394,7 +394,8 @@ struct Opt_Bundle MyOptBundle;
 	if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
 	if (Verbose) printf ("%.1f Fits in %.2f sec\n", Count,Timing);
 	if (Verbose) printf ("%d Bad Fits\n",BadFits);
-	free(FittingFrequencies);
+	free (FittingFrequencies);
+	free (FittedConstants);
 	return 1;
 Error:
 	printf ("Memory Error\n");
@@ -444,6 +445,9 @@ int i,j,k;
 	if (FileName != NULL) Save_MultiSave (FileName, SaveCount, Saves);
 	if (Verbose) printf ("%.1e Fits in %.2f sec\n", Count,Timing);
 	if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
+	
+	
+	
 	return 1;
 }
 
@@ -687,10 +691,10 @@ int i;
 int Pick_Four (int InputSize, int ***Return, int *ReturnSize)
 {
 /*
- * 
+  
  Builds an array of all possible combinations of 4 input lines
- * 
- */
+  
+*/
 int i,j,k,l,Binomial,Count;
 	Binomial = (int) (Factorial(InputSize)/(Factorial(InputSize-4)*24));
 	if (Binomial > 50000000) {
@@ -717,8 +721,6 @@ int i,j,k,l,Binomial,Count;
 	}
 	(*ReturnSize) = Binomial;
 	return 1;
-Error:
-	return 0;
 }
 
 #endif /* __BRUTE_FORCE_H__ */
