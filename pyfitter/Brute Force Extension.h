@@ -59,6 +59,9 @@ double Brute_Force_ConstantsArray (double * /*ConstantsArray*/, int /*ConstantsS
 double Brute_Force_Top_Results (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, int /*Verbose*/);
 double Brute_Force_Pointer_Scoring (double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, WinCounter /*WinFunction*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, int /*Verbose*/);
 double Brute_Force_Cube (struct Cube /*SearchCube*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, WinCounter /*WinFunction*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, char * /*FileName*/, int /*Verbose*/);
+double Brute_Force_Fit_Four (double /*AStart*/, double /*AStop*/, double /*ConstantsStart*/, double /*ConstantsStop*/, double /*ConstantsStep*/, double * /*ExperimentalLines*/, int /*ExperimentalLineCount*/, struct Transition * /*SearchingCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct ETauStruct /*ETStruct*/, struct Level * /*SearchingDictionary*/, int /*ScoreMethod*/, int /*SaveCount*/, struct MultiSave * /*Saves*/, int /*Verbose*/);
+
+
 
 //Scoring Functions
 int CountWins (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
@@ -66,7 +69,7 @@ double CountWins_Exp (double * /*ExperimentalFrequencies*/, int /*ExperimentalLi
 double CountWins_No_Double (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
 double CountWins_No_Double_Exp (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
 double CountWins_No_Double_Nearest (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/);
-
+int Find_Wins (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct Transition ** /*MatchedTransitions*/);
 int Find_Wins_No_Double_Nearest (double * /*ExperimentalFrequencies*/, int /*ExperimentalLines*/, struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, double /*Tolerance*/, struct Transition ** /*FrequencyList*/, int /*Count*/, double **);
 
 void insertionSort_Saves (struct MultiSave * /*SavestoSort*/, int /*SaveCount*/);
@@ -451,6 +454,136 @@ int i,j,k;
 	return 1;
 }
 
+double Brute_Force_Fit_Four (double AStart, double AStop, double ConstantsStart, double ConstantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod, int SaveCount, struct MultiSave *Saves, int Verbose)
+{
+//Variant of the Brute Force search that takes an array of values for the constants so you can use nonlinear steps for more effective searches
+double CurrentA,CurrentB,CurrentC,Count,Timing,ChiSqr,Kappa,Delta;
+double Constants[3];
+double *FittingFrequencies,*FitConstants;
+int i,BadFits,FittableLines,BinomialSize,Wins;
+int **PickFourArray;
+struct GSL_Bundle MyGSLBundle;
+struct Opt_Bundle MyOptBundle;
+struct Transition *FoundLines;
+FILE *FileHandle;
+
+	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
+	Wins = 0;
+	BadFits = 0;
+	clock_t begin = clock();
+	FittingFrequencies = malloc(sizeof(double));
+	FoundLines = NULL;
+	PickFourArray = malloc (50000000*sizeof(int *));
+	for (i=0;i<50000000;i++) PickFourArray[i] = malloc(4*sizeof(int));
+	FitConstants = malloc(3*sizeof(double));
+	MyOptBundle.ETGSL = ETStruct;
+	MyOptBundle.MyDictionary = SearchingDictionary;
+	MyOptBundle.TransitionsGSL = NULL;
+	MyOptBundle.TransitionCount = 4;
+	Initialize_SBFIT (&MyGSLBundle, &MyOptBundle);	
+	FittingFrequencies = malloc (4*sizeof(double));
+	for (i=0;i<SaveCount;i++) Saves[i].Score = 10000.0;
+	FoundLines = malloc (190*sizeof(struct Transition));
+	CurrentA = AStart;
+	CurrentB = ConstantsStart;
+	CurrentC = ConstantsStart;
+	while (CurrentA < AStop) {
+		CurrentB = ConstantsStart;
+		while (CurrentB < ConstantsStop) {
+			CurrentC = ConstantsStart;
+			while (CurrentC < ConstantsStop) {
+				if ((CurrentA > CurrentB) && (CurrentB > CurrentC)) {
+							
+					Constants[0] = CurrentA;
+					Constants[1] = CurrentB;
+					Constants[2] = CurrentC;
+					
+					Kappa = Get_Kappa(CurrentA,CurrentB,CurrentC);
+					Delta = Get_Delta(CurrentA,CurrentB,CurrentC);
+					if ((Kappa < 0.98) && (Kappa > -0.98) && (Delta < 50.0)) {
+						Get_Catalog (	SearchingCatalog, 		//Catalog to compute frequencies for
+										Constants, 			//Rotational constants for the calculation
+										CatalogTransitions,	//# of transitions in the catalog
+										0,					//Verbose
+										ETStruct,
+										SearchingDictionary
+									);		
+						switch (ScoreMethod) {
+							case 1:
+								Wins = CountWins (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+								break;
+							case 2:
+								Wins = CountWins_Exp (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);	
+								break;
+							case 3:
+								Wins = CountWins_No_Double (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+								break;
+							case 4:
+								Wins = CountWins_No_Double_Exp (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+								break;
+							default:
+								Wins = CountWins_No_Double (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
+								break;
+						}
+						if (Wins > 3) {
+							FittableLines = Find_Wins (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance, &FoundLines);
+							if (FittingFrequencies == NULL) goto Error;
+							Pick_Four (FittableLines, &PickFourArray, &BinomialSize);
+							for (i=0;i<BinomialSize;i++) {
+								MyOptBundle.TransitionsGSL[0] = FoundLines[PickFourArray[i][0]];
+								MyOptBundle.TransitionsGSL[1] = FoundLines[PickFourArray[i][1]];
+								MyOptBundle.TransitionsGSL[2] = FoundLines[PickFourArray[i][2]];
+								MyOptBundle.TransitionsGSL[3] = FoundLines[PickFourArray[i][3]];
+								FittingFrequencies[0] = FoundLines[PickFourArray[i][0]].Frequency;
+								FittingFrequencies[1] = FoundLines[PickFourArray[i][1]].Frequency;
+								FittingFrequencies[2] = FoundLines[PickFourArray[i][2]].Frequency;
+								FittingFrequencies[3] = FoundLines[PickFourArray[i][3]].Frequency;
+								if (!SBFIT (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, FittingFrequencies, &FitConstants)) {
+									BadFits++;
+								} else {
+									Kappa = Get_Kappa(FitConstants[0],FitConstants[1],FitConstants[2]);
+									Delta = Get_Delta(FitConstants[0],FitConstants[1],FitConstants[2]);
+									if ((ChiSqr < 0.2) && (Kappa < 0.96) && (Kappa > -0.96) && (Delta < 50.0) && (Delta > -100.0)) {
+										Saves[0].Score = ChiSqr;
+										Saves[0].A = CurrentA;
+										Saves[0].B = CurrentB;
+										Saves[0].C = CurrentC;
+										insertionSort_Saves_Descending(Saves, SaveCount); 
+										FileHandle = fopen("TestLog.txt","a");
+										fprintf (FileHandle,"%.3f %.3f %.3f\n",FitConstants[0],FitConstants[1],FitConstants[2]);
+										fclose(FileHandle);
+										if (Verbose > 1) {
+											Count+=1.0;
+											printf ("New Good One %.2e -- ChiSqr:%.2f A:%.2f B:%.2f C:%.2f Kappa:%f Delta:%f\n",Count,ChiSqr,FitConstants[0],FitConstants[1],FitConstants[2],Kappa,Delta);
+										}
+									}
+								}
+							}
+						}
+					}
+					
+				}
+				CurrentC += ConstantsStep;
+			}
+			CurrentB += ConstantsStep;
+		}
+		CurrentA += ConstantsStep;
+		printf ("A:%f\n",CurrentA);
+	}
+	clock_t end = clock();
+	Timing = (double)(end - begin) / CLOCKS_PER_SEC;
+	//if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
+	if (Verbose) printf ("%.1f Fits in %.2f sec\n", Count,Timing);
+	//if (Verbose) printf ("%d Bad Fits\n",BadFits);
+	free (FittingFrequencies);
+	free (FitConstants);
+	return 1;
+Error:
+	printf ("Memory Error\n");
+	return 0;	
+}
+
+
 //Meta Functions
 
 
@@ -528,6 +661,26 @@ int i,j;
 		}
 	}
 	return  Wins;
+}
+
+int Find_Wins (double *ExperimentalFrequencies, int ExperimentalLines, struct Transition *SourceCatalog, int CatalogTransitions, double Tolerance, struct Transition **MatchedTransitions) 
+{
+int i,j, Wins,Max;
+	Max = 100;
+	Wins = 0;
+	for (i=0;i<CatalogTransitions;i++) {
+		for (j=0;j<ExperimentalLines;j++) {
+			if (fabs(ExperimentalFrequencies[j]-SourceCatalog[i].Frequency) < Tolerance) {
+				(*MatchedTransitions)[Wins] = SourceCatalog[i];
+				(*MatchedTransitions)[Wins].Frequency = ExperimentalFrequencies[j];
+				Wins++;
+				if (Wins>Max-1) {
+					return Max;
+				}
+			}
+		}
+	}
+	return Wins;
 }
 
 int Find_Wins_No_Double_Nearest (double *ExperimentalFrequencies, int ExperimentalLines, struct Transition *SourceCatalog, int CatalogTransitions, double Tolerance, struct Transition **FrequencyList, int Count, double **FittingFrequencies) 
