@@ -80,6 +80,7 @@ int Build_Cube_Linear (struct Cube * /*TargetCube*/, double * /*AxisStart*/, dou
 
 
 double Factorial (int /*Input*/);
+int Pick_Four (int /*InputSize*/, int *** /*Return*/, int * /*ReturnSize*/);
 
 //=============Functions========================
 
@@ -681,6 +682,43 @@ int i;
 	n = 1;
 	for (i=1;i<=Input;i++) n= (double) n*i;
 	return n;
+}
+
+int Pick_Four (int InputSize, int ***Return, int *ReturnSize)
+{
+/*
+ * 
+ Builds an array of all possible combinations of 4 input lines
+ * 
+ */
+int i,j,k,l,Binomial,Count;
+	Binomial = (int) (Factorial(InputSize)/(Factorial(InputSize-4)*24));
+	if (Binomial > 50000000) {
+		Binomial = 50000000;
+		printf ("Warning binomial size exceeds 1GB, restricting to 50000000 sets\n");
+	}
+	Count = 0;
+	for (i=0;i<InputSize-3;i++) {
+		for (j=i+1;j<InputSize-2;j++) {
+			for (k=j+1;k<InputSize-1;k++) {
+				for (l=k+1;l<InputSize;l++) {
+					if ((i==j) || (i==k) || (i==l) || (j==k) || (j==l) || (k==l)) break;
+					else {
+						//printf ("%d: %d %d %d %d\n",Count,i,j,k,l);
+						(*Return)[Count][0] = i;
+						(*Return)[Count][1] = j;
+						(*Return)[Count][2] = k;
+						(*Return)[Count][3] = l;
+						Count++;
+					}
+				}
+			}
+		}
+	}
+	(*ReturnSize) = Binomial;
+	return 1;
+Error:
+	return 0;
 }
 
 #endif /* __BRUTE_FORCE_H__ */
