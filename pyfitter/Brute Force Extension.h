@@ -456,7 +456,29 @@ int i,j,k;
 
 double Brute_Force_Fit_Four (double AStart, double AStop, double ConstantsStart, double ConstantsStop, double ConstantsStep, double *ExperimentalLines, int ExperimentalLineCount, struct Transition *SearchingCatalog, int CatalogTransitions, double Tolerance, struct ETauStruct ETStruct, struct Level *SearchingDictionary, int ScoreMethod, int SaveCount, struct MultiSave *Saves, int Verbose)
 {
-//Variant of the Brute Force search that takes an array of values for the constants so you can use nonlinear steps for more effective searches
+/*
+	-Newest variant of the brute force approach to fitting spectra.
+	-The premise of this is that fitting three lines to three constants is essentially useless, but four lines will often have an unacceptable RMS, eliminating a lot of spurious fits
+	-For each catalog a list of matching lines within the tolerance is produced, then an array of all possible combinations is made and fit, anything that is non ridiculous is kept
+
+AStart (MHx) - Individual start for the A constant for subdividing this task into chunks for multithreading
+AStop (MHz) - Individual stop for the A constant for subdividing this task into chunks for multithreading
+ConstantsStart (MHz) - B/C Start
+ConstantsStop (MHz) - B/C Stop
+ConstantsStep (MHz) - Step for all constants
+ExperimentalLines - List of experimental lines to match against
+ExperimentalLineCount - # of lines in the experimental line list
+SearchingCatalog - Catalog used for matching against experimental lines. For most cases, it's recommended this be fairly small catalog. Catalog should be built prior to passing it to the function
+CatalogTransitions - # of transitions in the catalog, again unless you have a lot of processing power keep this low
+Tolerance (MHz) - Absolute value Max amount a predicted line can differ from an experimental line and still be a match. Generally should be ~1-2x the stepsize
+ETStruct - ETStruct used for fitting etc...
+SearchingDictionary - Dictionary that goes with the catalog/ET
+ScoreMethod - Method used for deciding how many matches we have, see the individual score methods for details, default is 1 which is a simple tolerance match, and generally the best to use since most filtering is done later
+SaveCount - Max number of good saves to keep, currently not in use
+Saves - Saves of good fits, currently not in use
+Verbose - The standard verbosity flag, higher numbers produce higher levels of detail
+
+*/
 double CurrentA,CurrentB,CurrentC,Count,Timing,ChiSqr,Kappa,Delta;
 double Constants[3];
 double *FittingFrequencies,*FitConstants;
