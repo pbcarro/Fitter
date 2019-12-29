@@ -479,10 +479,10 @@ Saves - Saves of good fits, currently not in use
 Verbose - The standard verbosity flag, higher numbers produce higher levels of detail
 
 */
-double CurrentA,CurrentB,CurrentC,Count,Timing,ChiSqr,Kappa,Delta;
+double CurrentA,CurrentB,CurrentC,Count,Timing,ChiSqr,Kappa,Delta,MaxKappa,MaxDelta,MinDelta,MaxChiSqr,BadFits;
 double Constants[3];
 double *FittingFrequencies,*FitConstants;
-int i,BadFits,FittableLines,BinomialSize,Wins;
+int i,FittableLines,BinomialSize,Wins;
 int **PickFourArray;
 struct GSL_Bundle MyGSLBundle;
 struct Opt_Bundle MyOptBundle;
@@ -492,8 +492,13 @@ FILE *FileHandle;
 	Count = 0.0;		//Tracking the number of counts we perform, using doubles to prevent int overflow
 	Wins = 0;
 	BadFits = 0;
+	MaxKappa = 0.95;
+	MaxDelta = 50.0;
+	MinDelta = -250.0;
+	BadFits = 0.0;
+	MaxChiSqr = 0.2;
+	
 	clock_t begin = clock();
-	FittingFrequencies = malloc(sizeof(double));
 	FoundLines = NULL;
 	PickFourArray = malloc (50000000*sizeof(int *));
 	for (i=0;i<50000000;i++) PickFourArray[i] = malloc(4*sizeof(int));
@@ -505,7 +510,7 @@ FILE *FileHandle;
 	Initialize_SBFIT (&MyGSLBundle, &MyOptBundle);	
 	FittingFrequencies = malloc (4*sizeof(double));
 	for (i=0;i<SaveCount;i++) Saves[i].Score = 10000.0;
-	FoundLines = malloc (190*sizeof(struct Transition));
+	FoundLines = malloc (CatalogTransitions*sizeof(struct Transition)); //Array for the lines found to possibly match a set of constants, max number of lines we could match is the number of catalog transitions, realistically far fewer
 	CurrentA = AStart;
 	CurrentB = ConstantsStart;
 	CurrentC = ConstantsStart;
@@ -519,18 +524,17 @@ FILE *FileHandle;
 					Constants[0] = CurrentA;
 					Constants[1] = CurrentB;
 					Constants[2] = CurrentC;
-					
-					Kappa = Get_Kappa(CurrentA,CurrentB,CurrentC);
-					Delta = Get_Delta(CurrentA,CurrentB,CurrentC);
-					if ((Kappa < 0.98) && (Kappa > -0.98) && (Delta < 50.0)) {
-						Get_Catalog (	SearchingCatalog, 		//Catalog to compute frequencies for
+					Kappa = Get_Kappa(CurrentA,CurrentB,CurrentC);	//First we do the easy math to see if it's a structurally reasonable molecule
+					Delta = Get_Delta(CurrentA,CurrentB,CurrentC);	//This is somewhat arbitrary, but grounded in experience, feel free to adjust as needed
+					if ((Kappa < MaxKappa) && (Kappa > -1.0*MaxKappa) && (Delta < MaxDelta) && (Delta > MinDelta)) {	//Only move forward if we have a sane molecule
+						Get_Catalog (	SearchingCatalog, 	//Catalog to compute frequencies for
 										Constants, 			//Rotational constants for the calculation
 										CatalogTransitions,	//# of transitions in the catalog
 										0,					//Verbose
-										ETStruct,
+										ETStruct,			
 										SearchingDictionary
 									);		
-						switch (ScoreMethod) {
+						switch (ScoreMethod) {	//Score the catalog, really for this only the first method is decent
 							case 1:
 								Wins = CountWins (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance);
 								break;
@@ -548,28 +552,28 @@ FILE *FileHandle;
 								break;
 						}
 						if (Wins > 3) {
-							FittableLines = Find_Wins (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance, &FoundLines);
-							if (FittingFrequencies == NULL) goto Error;
-							Pick_Four (FittableLines, &PickFourArray, &BinomialSize);
-							for (i=0;i<BinomialSize;i++) {
+							FittableLines = Find_Wins (ExperimentalLines, ExperimentalLineCount, SearchingCatalog, CatalogTransitions, Tolerance, &FoundLines);	//Separate function for actually pulling out the match transitions rather than just counting, could possibly combine with the score function above
+							if ((FittingFrequencies == NULL) || (FittableLines < 4)) goto Error;	//If it didnt work for whatever reason we bail
+							Pick_Four (FittableLines, &PickFourArray, &BinomialSize);	//Generate the array of possible options, easier to just remake it each time
+							for (i=0;i<BinomialSize;i++) {	//Now we iterate through all possible sets of lines
 								MyOptBundle.TransitionsGSL[0] = FoundLines[PickFourArray[i][0]];
 								MyOptBundle.TransitionsGSL[1] = FoundLines[PickFourArray[i][1]];
 								MyOptBundle.TransitionsGSL[2] = FoundLines[PickFourArray[i][2]];
 								MyOptBundle.TransitionsGSL[3] = FoundLines[PickFourArray[i][3]];
-								FittingFrequencies[0] = FoundLines[PickFourArray[i][0]].Frequency;
+								FittingFrequencies[0] = FoundLines[PickFourArray[i][0]].Frequency; //Assign the lines to the fitting setup
 								FittingFrequencies[1] = FoundLines[PickFourArray[i][1]].Frequency;
 								FittingFrequencies[2] = FoundLines[PickFourArray[i][2]].Frequency;
 								FittingFrequencies[3] = FoundLines[PickFourArray[i][3]].Frequency;
-								if (!SBFIT (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, FittingFrequencies, &FitConstants)) {
-									BadFits++;
+								if (!SBFIT (Constants, &ChiSqr, &MyGSLBundle, MyOptBundle, FittingFrequencies, &FitConstants)) {	//Fit the four lines
+									BadFits+=1.0;	//Count the bad fits for later
 								} else {
-									Kappa = Get_Kappa(FitConstants[0],FitConstants[1],FitConstants[2]);
+									Kappa = Get_Kappa(FitConstants[0],FitConstants[1],FitConstants[2]);	//Recheck the structure now that weve fit, semi redundant but still can cut some junk out
 									Delta = Get_Delta(FitConstants[0],FitConstants[1],FitConstants[2]);
-									if ((ChiSqr < 0.2) && (Kappa < 0.96) && (Kappa > -0.96) && (Delta < 50.0) && (Delta > -100.0)) {
-										Saves[0].Score = ChiSqr;
-										Saves[0].A = CurrentA;
-										Saves[0].B = CurrentB;
-										Saves[0].C = CurrentC;
+									if ((ChiSqr < MaxChiSqr) && (Kappa < MaxKappa) && (Kappa > -1.0*MaxKappa) && (Delta < MaxDelta) && (Delta > MinDelta)) {	//Also recheck against chisqr, we need a converged fit with a sane chi sqr for a four line fit or theres no point in continuing
+										Saves[0].Score = ChiSqr; 	//Save the best fit, but honestly, its pretty useless, this needs to be put through a much more rigorous 
+										Saves[0].A = FitConstants[0];
+										Saves[0].B = FitConstants[1];
+										Saves[0].C = FitConstants[2];
 										insertionSort_Saves_Descending(Saves, SaveCount); 
 										FileHandle = fopen("TestLog.txt","a");
 										fprintf (FileHandle,"%.3f %.3f %.3f\n",FitConstants[0],FitConstants[1],FitConstants[2]);
@@ -578,12 +582,13 @@ FILE *FileHandle;
 											Count+=1.0;
 											printf ("New Good One %.2e -- ChiSqr:%.2f A:%.2f B:%.2f C:%.2f Kappa:%f Delta:%f\n",Count,ChiSqr,FitConstants[0],FitConstants[1],FitConstants[2],Kappa,Delta);
 										}
+									} else {
+										BadFits+=1.0;	//Count the bad fits for later
 									}
 								}
 							}
 						}
 					}
-					
 				}
 				CurrentC += ConstantsStep;
 			}
@@ -596,7 +601,7 @@ FILE *FileHandle;
 	Timing = (double)(end - begin) / CLOCKS_PER_SEC;
 	//if (Verbose > 1) for (i=0;i<SaveCount;i++) printf ("%d: Score:%f %f %f %f\n",i,Saves[i].Score,Saves[i].A,Saves[i].B,Saves[i].C);
 	if (Verbose) printf ("%.1f Fits in %.2f sec\n", Count,Timing);
-	//if (Verbose) printf ("%d Bad Fits\n",BadFits);
+	if (Verbose) printf ("%f Bad Fits Ratio of bad to good fits: %.2f\n",BadFits,(BadFits/Count));
 	free (FittingFrequencies);
 	free (FitConstants);
 	return 1;
