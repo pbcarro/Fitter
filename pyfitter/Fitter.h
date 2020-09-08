@@ -165,14 +165,16 @@ int Load_ETau_File (char *FileName, double **X, double *FileDelta, int *StatePoi
 //ET is preallocated based on the global variables, there are no checks to see if the file matches until later
 int i,StateLimit;
 FILE *FileHandle;
-char TempString[5000];	
-	
-	StateLimit = 10000;
+char *TempString;	
+int CharLimit = 500000000;	
+	TempString = malloc (CharLimit*sizeof(char));
+	StateLimit = 100000;
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
 	if (FileHandle == NULL) goto Error;	
 	*StateCount = 0;
-	while (fgets(TempString, 5000, FileHandle) != NULL) (*StateCount)++;
+	while (fgets(TempString, CharLimit, FileHandle) != NULL) (*StateCount)++;
+	printf ("State Count: %d\n",(*StateCount));
 	rewind(FileHandle);
 	*X = malloc(StateLimit*(*StateCount)*sizeof(double));																
 	if (*X == NULL) goto Error;
@@ -180,7 +182,7 @@ char TempString[5000];
 	while (fscanf (FileHandle, "%lf", &(*X)[i]) == 1) {					//Keep scanning in floating points until there are no more
 		i++;
 		if (i == (StateLimit*(*StateCount))) {
-			printf ("Error: Your state file exceeds J=100, I don' want to deal with that\n");
+			printf ("Aww Error: Your state file exceeds J=100, I don' want to deal with that\n");
 			goto Error;
 		}
 	}
@@ -188,6 +190,7 @@ char TempString[5000];
 	*X = realloc(*X,i*sizeof(double));
 	*StatePoints = (int) i/(*StateCount);
 	*FileDelta = 2.0/(*StatePoints-1);
+	free(TempString);
 	return i;
 Error:
 	printf ("Error Loading file %s\n",FileName);
