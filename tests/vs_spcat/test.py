@@ -9,8 +9,9 @@ from pathlib import Path
 
 
 def main():
+    ETP =  "/Users/pcarroll/Documents/GitHub/Fitter/scripts/EigenVals_P10/J0_25_dk5.dat"
     session = AsymmetricMolecule(
-            **{"et_path": "/Users/kelvin/Documents/Python/Fitter/scripts/J0_25_dk3.dat"}
+            **{"et_path": ETP}
         )
     errors = list()
     counter = 0
@@ -32,10 +33,13 @@ def main():
         counter += 1
         print(f"Largest error for set: {error:.4f}")
         print(f"{worst_trans}")
-    avg_error = np.average(error)
-    std_error = np.std(error)
+    avg_error = np.average(errors)
+    std_error = np.std(errors)
+    print ("================")
+    print ("")
+    print (ETP)
     print(f"Aggregate error for {counter} tests")
-    print(f"{avg_error:.6f} +/- {std_error:.6f} MHz")
+    print(f"{avg_error:.6e} +/- {std_error:.6e} MHz")
 
 
 def read_spcat(filepath):
