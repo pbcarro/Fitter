@@ -232,7 +232,7 @@ char *TempString;
 		goto Error;	
 	}
 	*StateCount = 0;
-	while (fgets(TempString, CHRLIMIT, FileHandle) != NULL) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
+	while (fgets(TempString, MAXLINESIZE, FileHandle) != NULL) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
 	rewind(FileHandle);	//Rewind to the start of the file
 	
 	//Currently we're just block allocating the max amount of space then deallocating what isnt actually used. 
@@ -271,7 +271,7 @@ Error:
 
 int Load_Base_Catalog (char *FileName, struct Transition **BaseCatalog,  int Verbose)
 {
-int i,j,FileLimit;
+int i,FileLimit;
 FILE *FileHandle;
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
@@ -281,7 +281,7 @@ FILE *FileHandle;
 	
 	*BaseCatalog = malloc(FileLimit*sizeof(struct Transition));
 	while (fscanf (FileHandle, "%d %d %d", &(*BaseCatalog)[i].Upper, &(*BaseCatalog)[i].Lower, &(*BaseCatalog)[i].Type) == 3) {
-		(*BaseCatalog)[i].Map = i
+		(*BaseCatalog)[i].Map = i;
 		i++;
 		if (i >= (FileLimit-1)) {
 			printf ("Error: Base Catalog file exceeds %d transitions, I don't believe you\n", FileLimit);
