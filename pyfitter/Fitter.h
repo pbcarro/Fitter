@@ -12,6 +12,8 @@
 #include <gsl/gsl_multifit_nlinear.h>
 #include <gsl/gsl_linalg.h>
 
+#define MAXLINESIZE 50000000	// A hard limit on the load buffer size, can cause issues on low RAM systems	
+
 //=============Structures==============
 struct Level
 {
@@ -70,12 +72,13 @@ typedef double (*ScoreFunction)(struct Transition *, void *);	//Generic function
 //=============Function Prototypes==============
 
 //Program setup functions
-int Initialize_Stuff (double **/*ETArray*/, int */*CatTransitions*/, int */*DictTransitions*/, double */*FileDelta*/, int */*StatePoints*/, struct Level **/*DictionaryIn*/, struct Transition **/*CatalogIn*/);
-int Load_ETau_File (char */*FileName*/, double **/*X*/, double */*FileDelta*/, int */*StatePoints*/, int */*StateCount*/);
-int Load_ETau_File2 (char */*FileName*/, struct ETauStruct */*StructToLoad*/, int */*StateCount*/, int /*Verbose*/);
-int Load_Base_Catalog (char */*FileName*/, struct Transition **/*BaseCatalog*/,  int /*Verbose*/);
-int Load_Base_Catalog_Dictionary (char */*FileName*/, struct Level **/*DictIn*/,  int /*Verbose*/);
-int Load_Exp_File  (char */*FileName*/, double **/*X*/, double **/*Y*/, int /*Verbose*/);
+int Initialize_Stuff (double ** /*ETArray*/, int * /*CatTransitions*/, int * /*DictTransitions*/, double * /*FileDelta*/, int * /*StatePoints*/, struct Level ** /*DictionaryIn*/, struct Transition ** /*CatalogIn*/);
+int Load_ETau_File (char * /*FileName*/, double ** /*X*/, double * /*FileDelta*/, int * /*StatePoints*/, int * /*StateCount*/);
+int Load_ETau_File2 (char * /*FileName*/, struct ETauStruct * /*StructToLoad*/, int * /*StateCount*/, int /*Verbose*/);
+int Load_Base_Catalog (char * /*FileName*/, struct Transition ** /*BaseCatalog*/,  int /*Verbose*/);
+int Load_Base_Catalog_Dictionary (char * /*FileName*/, struct Level ** /*DictIn*/,  int /*Verbose*/);
+int Load_Exp_File  (char * /*FileName*/, double ** /*X*/, double ** /*Y*/, int /*Verbose*/);
+int Load_Str_File (char * /*FileName*/, double *** /*Data*/, int /*Verbose*/);
 
 //Frequency predicting functions
 double Get_Kappa (double /*A*/, double /*B*/, double /*C*/);  
@@ -84,8 +87,12 @@ int Get_J (int /*TransitionIndex*/, struct Level */*MyDictionary*/);
 double Partition_Function (double */*Constants*/, double /*Temperature*/);
 double E_tau (int /*TransitionIndex*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/);
 double Rigid_Rotor (double /*A*/, double /*C*/, int /*J*/, int /*Index*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/);
+double Rigid_Rotor_Error (double /*A*/, double /*C*/, int /*J*/, int /*Index*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/, double * /*Hkappa*/);
 double Get_Frequency (int /*J_Up*/, int /*J_Low*/, int /*IndexUp*/, int /*IndexLow*/, double */*Constants*/, struct ETauStruct /*ETStruct*/);
+double Get_Frequency_Error (int /*J_Up*/, int /*J_Low*/, int /*IndexUp*/, int /*IndexLow*/, double * /*Constants*/, struct ETauStruct /*ETStruct*/, double * /*TransitionError*/, double * /*ConstantsError*/);
 int Get_Catalog (struct Transition * restrict/*CatalogtoFill*/, double * restrict/*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
+int Get_Catalog_Error (struct Transition *restrict /*CatalogtoFill*/, double *restrict /*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level * /*MyDictionary*/, double * /*ConstantsError*/);
+double Get_Str (double /*Kappa*/, int /*Transition*/, int /*PointsPerSate*/, double ** /*StrData*/);
 
 //General catalog functions
 void print_Transition (struct Transition /*TransitionToPrint*/, struct Level */*MyDictionary*/);
@@ -101,6 +108,7 @@ int Fill_Catalog_Restricted_Intensity (struct Transition */*SourceCatalog*/, str
 int Fill_Catalog_Restricted_Intensity_Count (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*CatLinesOut*/, int /*Verbose*/, struct Level */*MyDictionary*/);
 void Calculate_State_Energies (struct Level */*MyCatalog*/, struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, int /*DictionaryLevels*/, int /*Verbose*/);
 void Calculate_Intensities (struct Transition */*SourceCatalog*/, int /*CatalogTransitions*/, struct Level */*MyDictionary*/, double /*T*/, double */*Dipoles*/, int /*Verbose*/);
+void Calculate_Intensities_Sij (struct Transition * /*SourceCatalog*/, int /*CatalogTransitions*/, struct Level * /*MyDictionary*/, double /*T*/, double * /*Dipoles*/, double ** /*StrData*/, double /*Kappa*/, double * /*Constants*/, int /*Verbose*/);
 int Standardize_Catalog (struct Transition * /*CatalogtoStandardize*/, int /*CatLines*/, int /*Verbose*/);
 
 //Fitting functions
@@ -115,6 +123,7 @@ void callback (const size_t /*iter*/, void */*params*/, const gsl_multifit_nline
 int Initialize_SBFIT (struct GSL_Bundle * /*FitBundle*/, struct Opt_Bundle * /*MyOpt_Bundle*/);
 int Initialize_SBFIT_Alloc (struct GSL_Bundle * /*FitBundle*/, struct Opt_Bundle * /*MyOpt_Bundle*/);
 int SBFIT (double */*Guess*/, double */*ChiSq*/, struct GSL_Bundle */*FitBundle*/, struct Opt_Bundle /*MyOpt_Bundle*/, double */*LineFrequencies*/, double [3]/*FinalConstants*/);
+int Get_SBFIT_Error (struct GSL_Bundle * /*FitBundle*/, double [3] /*Errors*/);
 int SBFIT_OptFunc_gsl (const gsl_vector * /*x*/, void * /*params*/, gsl_vector * /*f*/);
 
 //New Functions
@@ -163,6 +172,7 @@ Error:
 
 int Load_ETau_File (char *FileName, double **X, double *FileDelta, int *StatePoints, int *StateCount) 
 {
+//This is a deprecated version of the function. Please use Load_ETau_File2 instead unless you have a very good reason to use this. It is here mostly for compatibility/historical reasons. 
 
 //This loads the E_Tau file in by reading a single value from the file until there are no more values found in the file
 //This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
@@ -206,21 +216,32 @@ int Load_ETau_File2 (char *FileName, struct ETauStruct *StructToLoad, int *State
 {
 //This loads the E_Tau file in by reading a single value from the file until there are no more values found in the file
 //This unwraps the 2D file into a single long array for contiguousness, files should have a state's ET values in a single ROW, not column
-
-//Currently in testing
-
 int i,StateLimit;
 FILE *FileHandle;
-char TempString[500000];	
+char *TempString;
 	StateLimit = 10000;
+	TempString = malloc(MAXLINESIZE*sizeof(char));
+	if (TempString ==  NULL) {
+		printf ("Error in Load_ETau_File2: Unable to allocate the read buffer. Consider lowering CHRLIMIT and recompiling\n");
+		goto Error;
+	}
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
-	if (FileHandle == NULL) goto Error;	
+	if (FileHandle == NULL) {
+		printf ("Error in Load_ETau_File2: Can't open file %s\n",FileName);
+		goto Error;	
+	}
 	*StateCount = 0;
-	while (fgets(TempString, 500000, FileHandle) != NULL) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
+	while (fgets(TempString, CHRLIMIT, FileHandle) != NULL) (*StateCount)++;	//Run through the file and keep going until we hit the end, track the number of lines/states
 	rewind(FileHandle);	//Rewind to the start of the file
+	
+	//Currently we're just block allocating the max amount of space then deallocating what isnt actually used. 
+	//At some point we should change this to work out the exact amount and only allocate what we need.
 	(*StructToLoad).ETVals = malloc(StateLimit*(*StateCount)*sizeof(double));																
-	if ((*StructToLoad).ETVals == NULL) goto Error;
+	if ((*StructToLoad).ETVals == NULL) {
+		printf ("Error in Load_ETau_File2: Unable to allocate space for the data\n");
+		goto Error;
+	}
 	i = 0;
 	while (fscanf (FileHandle, "%lf", &((*StructToLoad).ETVals[i])) == 1) {					//Keep scanning in floating points until there are no more
 		i++;
@@ -233,11 +254,15 @@ char TempString[500000];
 	(*StructToLoad).ETVals = realloc((*StructToLoad).ETVals,i*sizeof(double));
 	(*StructToLoad).StatePoints = (int) i/(*StateCount);
 	(*StructToLoad).Delta = 2.0/((*StructToLoad).StatePoints-1);
+	if (i%(*StateCount) != 0) {
+		printf ("Warning: There are an extra %d points in the ET file. This is likely an issue that needs to be resolved. Take results from this run with caution\n",i%(*StateCount));
+	}
 	if (Verbose) {
 		printf ("=========Verbose Load_ETau_File2=========\n");
 		printf("Loaded ET File %s with %d states, %d points per state or a delta kappa of %.2e\n",FileName,(*StateCount),(*StructToLoad).StatePoints,(*StructToLoad).Delta);
 		printf ("=======================================\n");
 	}
+	free(TempString);
 	return i;
 Error:
 	printf ("Error Loading file %s\n",FileName);
@@ -246,7 +271,7 @@ Error:
 
 int Load_Base_Catalog (char *FileName, struct Transition **BaseCatalog,  int Verbose)
 {
-int i,FileLimit;
+int i,j,FileLimit;
 FILE *FileHandle;
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
@@ -256,6 +281,7 @@ FILE *FileHandle;
 	
 	*BaseCatalog = malloc(FileLimit*sizeof(struct Transition));
 	while (fscanf (FileHandle, "%d %d %d", &(*BaseCatalog)[i].Upper, &(*BaseCatalog)[i].Lower, &(*BaseCatalog)[i].Type) == 3) {
+		(*BaseCatalog)[i].Map = i
 		i++;
 		if (i >= (FileLimit-1)) {
 			printf ("Error: Base Catalog file exceeds %d transitions, I don't believe you\n", FileLimit);
@@ -348,6 +374,60 @@ FILE *FileHandle;
 	return i;
 Error:
 	printf ("Error Loading file %s\n",FileName);
+	return 0;
+}
+
+int Load_Str_File (char *FileName, double ***Data, int Verbose) 
+{
+//Function to load in a line strength/Sij file
+
+int i,j,PointsPerState,StateCount;
+double Test;
+FILE *FileHandle;
+int CharLimit = MAXLINESIZE;	
+char *TempString;	
+	TempString = malloc(CharLimit*sizeof(char));
+	FileHandle = NULL;
+	FileHandle = fopen (FileName, "r");									//Open file read only
+	if (FileHandle == NULL) {
+		printf ("Error loading Sij data: Cannot open file %s\n",FileName);
+		goto Error;
+	}
+	StateCount = 0;
+	while (fgets(TempString, CharLimit, FileHandle) != NULL) StateCount++;	//Run through the file and keep going until we hit the end, track the number of lines/states
+	rewind(FileHandle);	//Rewind to the start of the file
+	i=0;
+	while ((fscanf(FileHandle, "%lf", &Test) == 1)) i++;
+	rewind(FileHandle);	//Rewind to the start of the file
+	PointsPerState = i/StateCount;
+	if (i%StateCount != 0) {
+		printf ("Warning: There are an extra %d points in the Sij file. This is likely an issue that needs to be resolved. Take results from this run with caution\n",i%StateCount);
+	}
+	if (*Data == NULL) {
+		*Data = malloc (StateCount*sizeof(double *));
+		for (i=0;i<StateCount;i++) {	
+			(*Data)[i] = malloc(PointsPerState*sizeof(double));
+			if ((*Data)[i] == NULL) printf ("Null alloc\n");
+		}
+	} else {
+		//Ive set this up to do the allocation here, so if it was done elsewhere theres no way to be sure it was set correctly. so we send it back if it was done ahead of time
+		printf ("Please send a clean unallocated pointer to this function\n");
+		goto Error;
+	}
+	//Loop over the file loading stuff in
+	for (i=0;i<StateCount;i++) {
+		for (j=0;j<PointsPerState;j++) {
+			fscanf (FileHandle,"%lg",&(*Data)[i][j]);
+		}
+	}
+	free(TempString);
+	if (Verbose) {
+		printf ("======Load_Str_File======");
+		printf ("Loaded %d States with %d points per state\n",StateCount,PointsPerState);
+		printf ("=========================");
+	}
+	return StateCount;
+Error:
 	return 0;
 }
 
@@ -461,12 +541,33 @@ double Rigid_Rotor (double A, double C, int J, int Index, double Kappa, struct E
 	return 0.5*(A+C)*J*(J+1.0)+0.5*(A-C)*E_tau(Index,Kappa,ETStruct);
 }
 
+double Rigid_Rotor_Error (double A, double C, int J, int Index, double Kappa, struct ETauStruct ETStruct, double *Hkappa)
+{
+//Ease of use function to compute the energy of a single rigid rotor level
+//The first term is basically just total angular momentum, the second is an asymmetric rotor/state-dependent correction
+//Happily frequencies/energies are computed in hbar units the rotational constants are given in
+	*Hkappa = E_tau(Index,Kappa,ETStruct);	
+	return 0.5*(A+C)*J*(J+1.0)+0.5*(A-C)*(*Hkappa);
+}
+
 double Get_Frequency (int J_Up, int J_Low, int IndexUp, int IndexLow, double *Constants, struct ETauStruct ETStruct)
 {
 //Ease of use function to compute the frequency of an asymmetric rotor
 double Kappa;
 	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
 	return fabs(Rigid_Rotor(Constants[0],Constants[2],J_Up,IndexUp,Kappa,ETStruct)-Rigid_Rotor(Constants[0],Constants[2],J_Low,IndexLow,Kappa,ETStruct));
+}
+
+double Get_Frequency_Error (int J_Up, int J_Low, int IndexUp, int IndexLow, double *Constants, struct ETauStruct ETStruct, double *TransitionError, double *ConstantsError)
+{
+//Ease of use function to compute the frequency of an asymmetric rotor
+double Kappa,H1,H2,E1,E2,AC;
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	E1 = Rigid_Rotor_Error(Constants[0],Constants[2],J_Up,IndexUp,Kappa,ETStruct,&H1);
+	E2 = Rigid_Rotor_Error(Constants[0],Constants[2],J_Low,IndexLow,Kappa,ETStruct,&H2);
+	AC = sqrt(ConstantsError[0]*ConstantsError[0]+ConstantsError[2]*ConstantsError[2]);
+	*TransitionError = sqrt((AC*0.5*(J_Up*(J_Up+1.0)+H1))*(AC*0.5*(J_Up*(J_Up+1.0)+H1))+(AC*0.5*(J_Low*(J_Low+1.0)+H2))*(AC*0.5*(J_Low*(J_Low+1.0)+H2)));
+	return fabs(E1-E2);
 }
 
 int Get_Catalog (struct Transition *restrict CatalogtoFill, double *restrict Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary)
@@ -485,6 +586,41 @@ int i;	//Declaring i here because I like it, and apparently learned C pre C99
 		if (Verbose) print_Transition ((CatalogtoFill)[i],MyDictionary);
 	} 
 	return 1;
+}
+
+int Get_Catalog_Error (struct Transition *restrict CatalogtoFill, double *restrict Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary, double *ConstantsError)
+{
+//Utility function for calculating frequencies of a catalog
+int i;	//Declaring i here because I like it, and apparently learned C pre C99
+	for (i=0;i<CatLines;i++) {	
+		(CatalogtoFill)[i].Frequency = Get_Frequency_Error (	MyDictionary[(CatalogtoFill)[i].Upper].J,
+																MyDictionary[(CatalogtoFill)[i].Lower].J,
+																(CatalogtoFill)[i].Upper,
+																(CatalogtoFill)[i].Lower,
+																Constants,  
+																ETStruct,
+																&((CatalogtoFill)[i].Error),
+																ConstantsError
+																
+		);
+		if (Verbose) printf ("%d ",(CatalogtoFill)[i].Type);
+		if (Verbose) printf ("%.4f ",(CatalogtoFill)[i].Error);		
+		if (Verbose) print_Transition ((CatalogtoFill)[i],MyDictionary);
+	} 
+	return 1;
+}
+
+double Get_Str (double Kappa, int Transition, int PointsPerSate, double **StrData)
+{
+// Function to pull out the correct(ish) Sij value 
+// This uses integer math and no rounding to get the index of the array
+// This will give a slightly inaccurate result, but should be close enough, at some point I could add an interpolation scheme
+double RetStr;
+int Index;		
+	RetStr = 0.0;
+	Index = (int) ((Kappa+1.0)*PointsPerSate*0.5);
+	RetStr = StrData[Transition][Index];
+	return RetStr;	
 }
 
 ////////////////////////////////////
@@ -701,6 +837,18 @@ void Calculate_Intensities (struct Transition *SourceCatalog, int CatalogTransit
 int i;
 	for (i=0;i<CatalogTransitions;i++) {
 		(SourceCatalog[i]).Intensity = Dipoles[SourceCatalog[i].Type-1]*Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(	exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
+		if (Verbose) printf ("%e %f %f\n",(SourceCatalog[i]).Intensity,(MyDictionary[SourceCatalog[i].Lower]).Energy,(MyDictionary[SourceCatalog[i].Upper]).Energy);
+	}
+}
+
+void Calculate_Intensities_Sij (struct Transition *SourceCatalog, int CatalogTransitions, struct Level *MyDictionary, double T, double *Dipoles, double **StrData, double Kappa, double *Constants, int Verbose)
+{
+int i;
+double S,Q;
+	Q = Partition_Function (Constants,T);
+	for (i=0;i<CatalogTransitions;i++) {
+		S = Get_Str (Kappa, SourceCatalog[i].Map, 4000, StrData);
+		(SourceCatalog[i]).Intensity = S*(1.0/Q)*4.16231E-5*Dipoles[SourceCatalog[i].Type-1]*Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
 		if (Verbose) printf ("%e %f %f\n",(SourceCatalog[i]).Intensity,(MyDictionary[SourceCatalog[i].Lower]).Energy,(MyDictionary[SourceCatalog[i].Upper]).Energy);
 	}
 }
@@ -922,10 +1070,7 @@ gsl_vector_view x;
   	Transitions[1].Lower = TransitionstoFit.TransitionList[1].Lower;
 	Transitions[2].Upper = TransitionstoFit.TransitionList[2].Upper;
   	Transitions[2].Lower = TransitionstoFit.TransitionList[2].Lower;  
-  	
-  	
-  	
-  	printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
+  	//printf ("%i %i %i %i %i %i\n",TransitionstoFit.TransitionList[0].Upper,TransitionstoFit.TransitionList[0].Lower,TransitionstoFit.TransitionList[1].Upper,TransitionstoFit.TransitionList[1].Lower,TransitionstoFit.TransitionList[2].Upper,TransitionstoFit.TransitionList[2].Lower);
   	Wins = 0;		//Track the total number of wins for the current scoring system
   	Count = 0;		//Track the total number of constants (A+B+C) in the fit results
   	Iterations = 0;	//Variable to track the total number of iterations throughout the fit, just a bookeeping thing for me to see how the fitter is operating
@@ -1049,6 +1194,20 @@ gsl_vector_view x;
  	(FinalConstants)[2] = gsl_vector_get(Final,2);
 	//printf ("A:%.4f B:%.4f C:%.4f\n",gsl_vector_get(Final, 0),gsl_vector_get(Final, 1),gsl_vector_get(Final, 2));
 	return Success;
+}
+
+int Get_SBFIT_Error (struct GSL_Bundle *FitBundle, double Errors[3])
+{
+const size_t p = 3;
+gsl_matrix *J;
+gsl_matrix *covar = gsl_matrix_alloc (p, p);
+	J = gsl_multifit_nlinear_jac(FitBundle->Workspace);
+  	gsl_multifit_nlinear_covar (J, 0.0, covar);
+	(Errors)[0] = sqrt(gsl_matrix_get(covar,0,0));
+	(Errors)[1] = sqrt(gsl_matrix_get(covar,1,1));
+	(Errors)[2] = sqrt(gsl_matrix_get(covar,2,2));
+	gsl_matrix_free (covar);
+	return 1;
 }
 
 int SBFIT_OptFunc_gsl (const gsl_vector *x, void *params, gsl_vector *f)
