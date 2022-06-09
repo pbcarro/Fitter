@@ -79,6 +79,7 @@ int Load_Base_Catalog (char * /*FileName*/, struct Transition ** /*BaseCatalog*/
 int Load_Base_Catalog_Dictionary (char * /*FileName*/, struct Level ** /*DictIn*/,  int /*Verbose*/);
 int Load_Exp_File  (char * /*FileName*/, double ** /*X*/, double ** /*Y*/, int /*Verbose*/);
 int Load_Str_File (char * /*FileName*/, double *** /*Data*/, int /*Verbose*/);
+int Load_DJ_File (char * /*FileName*/, double ** /*Data*/, int /*Verbose*/);
 
 //Frequency predicting functions
 double Get_Kappa (double /*A*/, double /*B*/, double /*C*/);  
@@ -89,10 +90,12 @@ double E_tau (int /*TransitionIndex*/, double /*Kappa*/, struct ETauStruct /*ETS
 double Rigid_Rotor (double /*A*/, double /*C*/, int /*J*/, int /*Index*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/);
 double Rigid_Rotor_Error (double /*A*/, double /*C*/, int /*J*/, int /*Index*/, double /*Kappa*/, struct ETauStruct /*ETStruct*/, double * /*Hkappa*/);
 double Get_Frequency (int /*J_Up*/, int /*J_Low*/, int /*IndexUp*/, int /*IndexLow*/, double */*Constants*/, struct ETauStruct /*ETStruct*/);
+double Get_Frequency_DJ (int /*J_Up*/, int /*J_Low*/, int /*IndexUp*/, int /*IndexLow*/, double */*Constants*/, struct ETauStruct /*ETStruct*/, double * /*DJSlopes*/);
 double Get_Frequency_Error (int /*J_Up*/, int /*J_Low*/, int /*IndexUp*/, int /*IndexLow*/, double * /*Constants*/, struct ETauStruct /*ETStruct*/, double * /*TransitionError*/, double * /*ConstantsError*/);
 int Get_Catalog (struct Transition * restrict/*CatalogtoFill*/, double * restrict/*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level */*MyDictionary*/);
 int Get_Catalog_Error (struct Transition *restrict /*CatalogtoFill*/, double *restrict /*Constants*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level * /*MyDictionary*/, double * /*ConstantsError*/);
 double Get_Str (double /*Kappa*/, int /*Transition*/, int /*PointsPerSate*/, double ** /*StrData*/);
+double DJ_Shift (int /*State*/, double /*DJ*/, double * /*DJSlopes*/);
 
 //General catalog functions
 void print_Transition (struct Transition /*TransitionToPrint*/, struct Level */*MyDictionary*/);
@@ -101,6 +104,7 @@ int Catalog_Comparator_Frequency (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Intensity (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Upper (const void */*a*/, const void */*b*/);
 int Catalog_Comparator_Index_Lower (const void */*a*/, const void */*b*/);
+int Comparator_Int (const void * /*a*/, const void * /*b*/);
 void insertionSort(struct Transition */*CatalogtoSort*/, int /*TransitionCount*/);
 int Fill_Catalog_Restricted_Frequency (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, double /*FrequencyLow*/, double /*FrequencyHigh*/, int /*Verbose*/, struct Level */*MyDictionary*/);
 int Fill_Catalog_Restricted_J (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*JMin*/, int /*JMax*/, int /*Verbose*/, struct Level */*MyDictionary*/);
@@ -126,9 +130,17 @@ int SBFIT (double */*Guess*/, double */*ChiSq*/, struct GSL_Bundle */*FitBundle*
 int Get_SBFIT_Error (struct GSL_Bundle * /*FitBundle*/, double [3] /*Errors*/);
 int SBFIT_OptFunc_gsl (const gsl_vector * /*x*/, void * /*params*/, gsl_vector * /*f*/);
 
-//New Functions
+//DR Search functions
 int Search_DR_Hits (int /*DRPairs*/, double /*ConstStart*/, double /*ConstStop*/, double /*Step*/, double */*DRFrequency*/, double /*Tolerance*/, int /*ExtraLineCount*/, double */*ExtraLines*/, int **/*DRLinks*/, int /*LinkCount*/, struct Transition */*CatalogtoFill*/, int /*CatLines*/, int /*Verbose*/, struct ETauStruct /*ETStruct*/, struct Level * /*MyDictionary*/, char * /*FileName*/);
 int Match_Levels (int /*Match1*/, int /*Match2*/, struct Transition * /*MatchCatalog*/);
+
+//V2 Get Catalog and related functions
+int Fill_Catalog_Restricted_J2 (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*JMin*/, int /*JMax*/, int /*Verbose*/, struct Level */*MyDictionary*/, int ** /*Mask*/, int * /*MaskCount*/);
+int Fill_Catalog_Restricted_Ka2 (struct Transition */*SourceCatalog*/, struct Transition **/*CatalogtoFill*/, double */*Constants*/, int /*CatLines*/, int /*JMin*/, int /*JMax*/, int /*Verbose*/, struct Level */*MyDictionary*/, int ** /*Mask*/, int * /*MaskCount*/);
+int Get_Catalog2 (double /*Constants*/[3], struct ETauStruct /*ETStruct*/, struct Level * /*MyDictionary*/, int * /*LevelList*/, int /*LevelListCount*/, struct Transition * /*CatalogtoFill*/, int /*CatLines*/, int /*Verbose*/);
+int Make_Default_Level_List (int /*DictionaryLevels*/, int ** /*LevelList*/);
+int Get_Catalog2_DJ (double /*Constants*/[4], struct ETauStruct /*ETStruct*/, struct Level * /*MyDictionary*/, int * /*LevelList*/, int /*LevelListCount*/, struct Transition * /*CatalogtoFill*/, int /*CatLines*/, double * /*DJSlopes*/, int /*Verbose*/);
+
 
 //Test Functions
 int Timing_Test(void);
@@ -137,6 +149,8 @@ void Test_SBFIT (void);
 void Test_Triples (char *, struct Transition *, struct Level *, int /*CatalogLines*/, struct ETauStruct /*FittingETStruct*/);
 double DummyFunction (struct Transition */*MyCatalog*/, void */*Data*/);
 int Timing_Test_Triples (void);
+
+
 
 //Functions
 
@@ -159,7 +173,8 @@ int TempPoints;
 	printf ("Catalog Loaded\n");
 
 	//Load all of our ET values into the array and check that it worked, using static external files cause I'm lazy
-	if (Load_ETau_File ("etau.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
+// 	if (Load_ETau_File ("etau.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
+	if (Load_ETau_File ("J0_25_dk3.dat", ETArray,FileDelta,StatePoints,&TempPoints)) printf ("Tables Loaded\n");
 	else goto Error;
 	if (*DictLevels != TempPoints) {
 		printf ("Warning: mismatch between number of dictionary states(%d) and number of states in the eigenvalue file (%d)\n",*DictLevels,TempPoints);
@@ -386,6 +401,7 @@ double Test;
 FILE *FileHandle;
 int CharLimit = MAXLINESIZE;	
 char *TempString;	
+	
 	TempString = malloc(CharLimit*sizeof(char));
 	FileHandle = NULL;
 	FileHandle = fopen (FileName, "r");									//Open file read only
@@ -403,6 +419,7 @@ char *TempString;
 	if (i%StateCount != 0) {
 		printf ("Warning: There are an extra %d points in the Sij file. This is likely an issue that needs to be resolved. Take results from this run with caution\n",i%StateCount);
 	}
+	
 	if (*Data == NULL) {
 		*Data = malloc (StateCount*sizeof(double *));
 		for (i=0;i<StateCount;i++) {	
@@ -411,7 +428,7 @@ char *TempString;
 		}
 	} else {
 		//Ive set this up to do the allocation here, so if it was done elsewhere theres no way to be sure it was set correctly. so we send it back if it was done ahead of time
-		printf ("Please send a clean unallocated pointer to this function\n");
+		printf ("Load_Str_File: Please send a clean unallocated pointer to this function\n");
 		goto Error;
 	}
 	//Loop over the file loading stuff in
@@ -422,13 +439,57 @@ char *TempString;
 	}
 	free(TempString);
 	if (Verbose) {
-		printf ("======Load_Str_File======");
+		printf ("======Load_Str_File======\n");
 		printf ("Loaded %d States with %d points per state\n",StateCount,PointsPerState);
-		printf ("=========================");
+		printf ("=========================\n");
 	}
 	return StateCount;
 Error:
 	return 0;
+}
+
+int Load_DJ_File (char *FileName, double **Data, int Verbose)
+{
+int i,StateCount;
+FILE *FileHandle;
+char *TempString;	
+int CharLimit = 500000000;	
+	if (Verbose) printf ("Loading DJ file %s\n",FileName);
+	TempString = malloc (CharLimit*sizeof(char));
+	FileHandle = NULL;
+	FileHandle = fopen (FileName, "r");									//Open file read only
+	if (FileHandle == NULL) goto Error;	
+	StateCount = 0;
+	while (fgets(TempString, CharLimit, FileHandle) != NULL) StateCount++;
+	if (StateCount >100000) {
+		printf ("Eror: You have too many states in your catalog\n");
+		goto Error;
+	}
+	if (Verbose) printf ("Found %d states in the DJ File\n",StateCount);
+	rewind(FileHandle);
+	
+	
+	
+	if (*Data == NULL) {
+		*Data = malloc(StateCount*sizeof(double));	
+	}															
+	else {
+		*Data = realloc (*Data,StateCount*sizeof(double));		
+	}
+	if (*Data == NULL) goto Error;
+	i = 0;
+	while (fscanf (FileHandle, "%lf", &(*Data)[i]) == 1) {					//Keep scanning in floating points until there are no more
+		i++;
+	}
+	if (Verbose) printf ("Loaded %d states in the DJ File\n",StateCount);
+	fclose (FileHandle);												//Not currently checking to see if fclose works, shouldnt affect file load and theres not much to be done if there is an error, the file stream should close when the program ends so hopefully this wont mater														
+	free(TempString);
+	return StateCount;
+Error:
+	printf ("Error Loading DJ file %s\n",FileName);
+	return 0;
+
+
 }
 
 ////////////////////////////////////
@@ -558,6 +619,15 @@ double Kappa;
 	return fabs(Rigid_Rotor(Constants[0],Constants[2],J_Up,IndexUp,Kappa,ETStruct)-Rigid_Rotor(Constants[0],Constants[2],J_Low,IndexLow,Kappa,ETStruct));
 }
 
+double Get_Frequency_DJ (int J_Up, int J_Low, int IndexUp, int IndexLow, double *Constants, struct ETauStruct ETStruct, double *DJSlopes)
+{
+//Ease of use function to compute the frequency of an asymmetric rotor with DJ
+double Kappa;
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	return fabs((Rigid_Rotor(Constants[0],Constants[2],J_Up,IndexUp,Kappa,ETStruct)+DJ_Shift(IndexUp,Constants[3],DJSlopes))-
+				(Rigid_Rotor(Constants[0],Constants[2],J_Low,IndexLow,Kappa,ETStruct)+DJ_Shift(IndexLow,Constants[3],DJSlopes)));
+}
+
 double Get_Frequency_Error (int J_Up, int J_Low, int IndexUp, int IndexLow, double *Constants, struct ETauStruct ETStruct, double *TransitionError, double *ConstantsError)
 {
 //Ease of use function to compute the frequency of an asymmetric rotor
@@ -581,6 +651,25 @@ int i;	//Declaring i here because I like it, and apparently learned C pre C99
 														(CatalogtoFill)[i].Lower,
 														Constants,  
 														ETStruct
+		);
+		if (Verbose) printf ("%d %d ",i,(CatalogtoFill)[i].Type);		
+		if (Verbose) print_Transition ((CatalogtoFill)[i],MyDictionary);
+	} 
+	return 1;
+}
+
+int Get_Catalog_DJ (struct Transition *restrict CatalogtoFill, double *restrict Constants, int CatLines, int Verbose, struct ETauStruct ETStruct, struct Level *MyDictionary, double *DJSlopes)
+{
+//Utility function for calculating frequencies of a catalog
+int i;	//Declaring i here because I like it, and apparently learned C pre C99
+	for (i=0;i<CatLines;i++) {	
+		(CatalogtoFill)[i].Frequency = Get_Frequency_DJ (	MyDictionary[(CatalogtoFill)[i].Upper].J,
+															MyDictionary[(CatalogtoFill)[i].Lower].J,
+															(CatalogtoFill)[i].Upper,
+															(CatalogtoFill)[i].Lower,
+															Constants,  
+															ETStruct,
+															DJSlopes
 		);
 		if (Verbose) printf ("%d %d ",i,(CatalogtoFill)[i].Type);		
 		if (Verbose) print_Transition ((CatalogtoFill)[i],MyDictionary);
@@ -621,6 +710,11 @@ int Index;
 	Index = (int) ((Kappa+1.0)*PointsPerSate*0.5);
 	RetStr = StrData[Transition][Index];
 	return RetStr;	
+}
+
+double DJ_Shift (int State, double DJ, double *DJSlopes)
+{
+	return DJ*DJSlopes[State];
 }
 
 ////////////////////////////////////
@@ -706,6 +800,16 @@ int Catalog_Comparator_Index_Lower (const void *a, const void *b)
 	struct Transition B = *(struct Transition *) b;
 	if (A.Lower > B.Lower) return 1;
 	else if (A.Lower < B.Lower) return -1;
+	else return 0;
+}
+
+int Comparator_Int (const void *a, const void *b) 
+{
+//Comparison function for qsort sorting of integers
+	int A = *(int *) a;
+	int B = *(int *) b;
+	if (A > B) return 1;
+	else if (A < B) return -1;
 	else return 0;
 }
 
@@ -847,7 +951,7 @@ int i;
 double S,Q;
 	Q = Partition_Function (Constants,T);
 	for (i=0;i<CatalogTransitions;i++) {
-		S = Get_Str (Kappa, SourceCatalog[i].Map, 4000, StrData);
+		S = Get_Str (Kappa, SourceCatalog[i].Map, 2001, StrData);
 		(SourceCatalog[i]).Intensity = S*(1.0/Q)*4.16231E-5*Dipoles[SourceCatalog[i].Type-1]*Dipoles[SourceCatalog[i].Type-1]*SourceCatalog[i].Frequency*fabs(exp(-1.0*(MyDictionary[SourceCatalog[i].Lower]).Energy/T)-exp(-1.0*(MyDictionary[SourceCatalog[i].Upper].Energy)/T));
 		if (Verbose) printf ("%e %f %f\n",(SourceCatalog[i]).Intensity,(MyDictionary[SourceCatalog[i].Lower]).Energy,(MyDictionary[SourceCatalog[i].Upper]).Energy);
 	}
@@ -1240,17 +1344,35 @@ int Timing_Test(void)
 		2017 Core i7 4970 - Ubuntu ~6 seconds for 100000 calculate+sors
 		Updated 7/22/19 
 */
-double Constants[3], Dipoles[3];	
+double Constants[3], Dipoles[3],Sum,Mean,StdDev,Kappa;
 struct ETauStruct ETStruct;
 struct Transition *BaseCatalog, *SortedCatalog;	//Model catalog used to save time and simplify	
 struct Level	*BaseDict;						//The base catalog dictionary, translates from an index to J/Ka/Kc 
 int CatalogTransitions,DictionaryLevels;		//Number of transitions in the catalogs
 int i,j;
 
+int *LevelList,LevelsCount;
+
+double CatalogTime,Catalog_Sort_Time,Catalog_Sort_Energies_Time,Catalog_Sort_Energies_Intensities_Time;
+double CatalogTime_R,Catalog_Sort_Time_R,Catalog_Sort_Energies_Time_R,Catalog_Sort_Energies_Intensities_Time_R;
+double CatalogTime_V2,Catalog_Sort_Time_V2,Catalog_Sort_Intensities_Time_V2;
+double CatalogTime_V2_R,Catalog_Sort_Time_V2_R,Catalog_Sort_Intensities_Time_V2_R;
+double **StrData;	
+
+//Restricted Catalog stuff
+int JRestrictedLines,KaRestrictedLines,MaxJ,MaxKa,CatLines;
+int JDictCount,KaDictCount;
+struct Transition *JRestricted, *KaRestricted, *CattoUse;
 	
 	if (!Initialize_Stuff(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog)) {
 		goto Error;
 	}
+	StrData = NULL;
+	Load_Str_File ("Intensity_Full_DK3.int", &StrData, 0);
+	
+	
+	
+	//Initial run to get values
 	Constants[0] = 3000.0;
 	Constants[1] = 2000.0;
 	Constants[2] = 1000.0;
@@ -1264,9 +1386,9 @@ int i,j;
 			);
 	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
 
-
+	
 	int Loops = 100000;		//Number of loops in a single run
-	int TimingLoops = 10;	//Number if timing runs, used to capture variance in the run time
+	int TimingLoops = 5;	//Number if timing runs, used to capture variance in the run time
 	double *Timing;
 	Timing = malloc (TimingLoops*sizeof(double));
 
@@ -1278,6 +1400,8 @@ int i,j;
 	Dipoles[0] = 1.0;
 	Dipoles[1] = 1.0;
 	Dipoles[2] = 1.0;
+	
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
 	
 	Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
 					Constants, 			//Rotational constants for the calculation
@@ -1303,8 +1427,85 @@ int i,j;
 	);
 	Calculate_State_Energies (BaseDict, SortedCatalog, CatalogTransitions,DictionaryLevels,0);
 	Calculate_Intensities (BaseCatalog, CatalogTransitions, BaseDict, 3.0, Dipoles,0);	
-
 	
+	printf ("\n====Starting a full timing run, this will take several minutes, maybe grab a coffee====\n");
+	
+	
+	
+	////////////////
+	////////////////
+	//Full Catalog timing tests
+	
+	printf ("Full Catalog timing test | Catalog Only | Get_Catalog V1\n");
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
+							Constants, 			//Rotational constants for the calculation
+							CatalogTransitions,	//# of transitions in the catalog
+							0,					//Verbose
+							ETStruct,
+							BaseDict
+			);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);
+	CatalogTime = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Full Catalog timing test | Catalog+Sort | Get_Catalog V1\n");
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
+							Constants, 			//Rotational constants for the calculation
+							CatalogTransitions,	//# of transitions in the catalog
+							0,					//Verbose
+							ETStruct,
+							BaseDict
+			);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);
+	Catalog_Sort_Time = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Full Catalog timing test | Catalog+Sort+Energies | Get_Catalog V1\n");
 	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
 	for (j=0;j<TimingLoops;j++) {
 		clock_t begin = clock();
@@ -1321,10 +1522,10 @@ int i,j;
 		}
 		clock_t end = clock();
 		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
-		printf("%f\n", Timing[j]);
+		printf("%f s\n", Timing[j]);
 		
 	}
-	double Sum,Mean,StdDev;
+	
 	Sum = 0.0;
 	StdDev = 0.0;
 	for(i=0; i<TimingLoops; ++i)
@@ -1335,7 +1536,598 @@ int i,j;
     for(i=0; i<TimingLoops; ++i)
         StdDev += pow(Timing[i] - Mean, 2.0);
     StdDev = sqrt(StdDev/TimingLoops);
-	printf ("Average Time:%f, Standard Deviation:%f\n",Mean,StdDev);	
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Energies_Time = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Full Catalog timing test | Catalog+Sort+Energies+Intensities | Get_Catalog V1\n");
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
+							Constants, 			//Rotational constants for the calculation
+							CatalogTransitions,	//# of transitions in the catalog
+							0,					//Verbose
+							ETStruct,
+							BaseDict
+			);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+			Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 2.3, Dipoles, StrData, Kappa, Constants, 0);
+
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Energies_Intensities_Time = Mean/Loops;
+	
+	
+	////////////////
+	////////////////
+	MaxJ =  10;
+	MaxKa = 5;
+	
+	JRestrictedLines = Fill_Catalog_Restricted_J (BaseCatalog, &JRestricted, Constants, CatalogTransitions, 0, MaxJ, 0, BaseDict);
+	KaRestrictedLines = Fill_Catalog_Restricted_Ka (JRestricted, &KaRestricted, Constants, JRestrictedLines, 0, MaxKa, 0, BaseDict);
+	CatLines = KaRestrictedLines;
+	CattoUse = KaRestricted;
+	printf ("Restricted Catalog timing test Max J: %d Max Ka: %d | Catalog Only | Get_Catalog V1\n",MaxJ,MaxKa);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog (	CattoUse, 		//Catalog to compute frequencies for
+							Constants, 			//Rotational constants for the calculation
+							CatLines,	//# of transitions in the catalog
+							0,					//Verbose
+							ETStruct,
+							BaseDict
+			);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	CatalogTime_R = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Restricted Catalog timing test Max J: %d Max Ka: %d | Catalog+Sort | Get_Catalog V1\n",MaxJ,MaxKa);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog (	CattoUse, 		//Catalog to compute frequencies for
+							Constants, 			//Rotational constants for the calculation
+							CatLines,	//# of transitions in the catalog
+							0,					//Verbose
+							ETStruct,
+							BaseDict
+			);
+			Sort_Catalog (CattoUse,CatLines,2,0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);	
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Time_R = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Restricted Catalog timing test Max J: %d Max Ka: %d | Catalog+Sort+Energies | Get_Catalog V1\n",MaxJ,MaxKa);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog (	CattoUse, 		//Catalog to compute frequencies for
+							Constants, 			//Rotational constants for the calculation
+							CatLines,	//# of transitions in the catalog
+							0,					//Verbose
+							ETStruct,
+							BaseDict
+			);
+			Sort_Catalog (CattoUse,CatLines,2,0);
+			Calculate_State_Energies (BaseDict, CattoUse, CatLines, DictionaryLevels,0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);	
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Energies_Time_R = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Restricted Catalog timing test Max J: %d Max Ka: %d | Catalog+Sort+Energies+Intensities | Get_Catalog V1\n",MaxJ,MaxKa);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog (	CattoUse, 		//Catalog to compute frequencies for
+							Constants, 			//Rotational constants for the calculation
+							CatLines,	//# of transitions in the catalog
+							0,					//Verbose
+							ETStruct,
+							BaseDict
+			);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+			Calculate_Intensities_Sij (CattoUse, CatLines, BaseDict, 2.3, Dipoles, StrData, Kappa, Constants, 0);
+
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Energies_Intensities_Time_R = Mean/Loops;
+	
+	
+	
+	////////////////
+	////////////////
+	printf ("Note: All V2 Calculations include energies automatically\n");
+	
+	printf ("Full Catalog timing test | Catalog+Energies | Get_Catalog V2\n");
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	
+	LevelsCount = Make_Default_Level_List (DictionaryLevels,&LevelList);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog2 (	Constants, 
+							ETStruct, 
+							BaseDict, 
+							LevelList, 
+							LevelsCount, 
+							BaseCatalog, 
+							CatalogTransitions,
+						0
+			);
+			//Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			//Next line commented out because V2 automatically calculates the energies anyway
+			//Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	CatalogTime_V2 = Mean/Loops;
+	free (LevelList);
+	
+	////////////////
+	
+	printf ("Full Catalog timing test | Catalog+Sort+Energies | Get_Catalog V2\n");
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	LevelsCount = Make_Default_Level_List (DictionaryLevels,&LevelList);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog2 (	Constants, 
+							ETStruct, 
+							BaseDict, 
+							LevelList, 
+							LevelsCount, 
+							BaseCatalog, 
+							CatalogTransitions,
+						0
+			);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			//Next line commented out because V2 automatically calculates the energies anyway
+			//Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Time_V2 = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Full Catalog timing test | Catalog+Sort+Energies+Intensities | Get_Catalog V2\n");
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	LevelsCount = Make_Default_Level_List (DictionaryLevels,&LevelList);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog2 (	Constants, 
+							ETStruct, 
+							BaseDict, 
+							LevelList, 
+							LevelsCount, 
+							BaseCatalog, 
+							CatalogTransitions,
+						0
+			);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			//Next line commented out because V2 automatically calculates the energies anyway
+			//Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+			Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 2.3, Dipoles, StrData, Kappa, Constants, 0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Intensities_Time_V2 = Mean/Loops;
+	
+	////////////////
+	////////////////
+	
+	
+	
+	JRestrictedLines = Fill_Catalog_Restricted_J2 (BaseCatalog, &JRestricted, Constants, CatalogTransitions, 0, MaxJ, 0, BaseDict, &LevelList, &JDictCount);
+	free (LevelList);
+	KaRestrictedLines = Fill_Catalog_Restricted_J2 (JRestricted, &KaRestricted, Constants, CatalogTransitions, 0, MaxKa, 0, BaseDict, &LevelList, &KaDictCount);
+	
+	printf ("Restricted Catalog timing test Max J: %d Max Ka: %d | Catalog+Energies | Get_Catalog V2\n",MaxJ,MaxKa);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog2 (	Constants, 
+							ETStruct, 
+							BaseDict, 
+							LevelList, 
+							KaDictCount, 
+							KaRestricted, 
+							KaRestrictedLines,
+						0
+			);
+			//Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			//Next line commented out because V2 automatically calculates the energies anyway
+			//Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	CatalogTime_V2_R = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Restricted Catalog timing test Max J: %d Max Ka: %d | Catalog+Sort+Energies | Get_Catalog V2\n",MaxJ,MaxKa);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog2 (	Constants, 
+							ETStruct, 
+							BaseDict, 
+							LevelList, 
+							KaDictCount, 
+							KaRestricted, 
+							KaRestrictedLines,
+						0
+			);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			//Next line commented out because V2 automatically calculates the energies anyway
+			//Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Time_V2_R = Mean/Loops;
+	
+	////////////////
+	
+	printf ("Restricted Catalog timing test Max J: %d Max Ka: %d | Catalog+Sort+Energies+Intensities | Get_Catalog V2\n",MaxJ,MaxKa);
+	printf ("Starting timing test run. %d loops per run, %d runs\n",Loops,TimingLoops);
+	for (j=0;j<TimingLoops;j++) {
+		clock_t begin = clock();
+		for (i=0;i<Loops;i++) {
+			Get_Catalog2 (	Constants, 
+							ETStruct, 
+							BaseDict, 
+							LevelList, 
+							KaDictCount, 
+							KaRestricted, 
+							KaRestrictedLines,
+						0
+			);
+			Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+			//Next line commented out because V2 automatically calculates the energies anyway
+			//Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+			Calculate_Intensities_Sij (CattoUse, CatLines, BaseDict, 2.3, Dipoles, StrData, Kappa, Constants, 0);
+		}
+		clock_t end = clock();
+		Timing[j] = (double)(end - begin) / CLOCKS_PER_SEC;
+		printf("%f s\n", Timing[j]);
+		
+	}
+	
+	Sum = 0.0;
+	StdDev = 0.0;
+	for(i=0; i<TimingLoops; ++i)
+    {
+        Sum += Timing[i];
+    }
+    Mean = Sum/TimingLoops;
+    for(i=0; i<TimingLoops; ++i)
+        StdDev += pow(Timing[i] - Mean, 2.0);
+    StdDev = sqrt(StdDev/TimingLoops);
+	printf ("Average Time:%f, Standard Deviation:%f\n\n",Mean,StdDev);	
+	Catalog_Sort_Intensities_Time_V2_R = Mean/Loops;
+	
+	////////////////
+	////////////////
+	
+	//Sorry for writing this out like this but it was done piece wise and just got out of hand
+	
+	//Individual action times per catalog	
+	double CatalogRatio = CatalogTransitions/KaRestrictedLines;
+	double V1_SortTime = Catalog_Sort_Time-CatalogTime;	
+	double V1_EnergyTime = Catalog_Sort_Energies_Time-Catalog_Sort_Time;	
+	double V1_IntensityTime = Catalog_Sort_Energies_Intensities_Time-Catalog_Sort_Energies_Time;
+	
+	double V1_SortTime_R = Catalog_Sort_Time_R-CatalogTime_R;	
+	double V1_EnergyTime_R = Catalog_Sort_Energies_Time_R-Catalog_Sort_Time_R;	
+	double V1_IntensityTime_R = Catalog_Sort_Energies_Intensities_Time_R-Catalog_Sort_Energies_Time_R;
+	
+	double V2_SortTime = Catalog_Sort_Time_V2-CatalogTime_V2;
+	double V2_IntensityTime = Catalog_Sort_Intensities_Time_V2-Catalog_Sort_Time_V2;
+	
+	double V2_SortTime_R = Catalog_Sort_Time_V2-CatalogTime_V2;
+	double V2_IntensityTime_R = Catalog_Sort_Intensities_Time_V2-Catalog_Sort_Time_V2;
+	
+	//Individual action times per transition
+	double V1_CatalogTime_Line = CatalogTime/CatalogTransitions;
+	double V1_SortTime_Line = V1_SortTime/CatalogTransitions;
+	double V1_EnergyTime_Line = V1_EnergyTime/CatalogTransitions;
+	double V1_IntensityTime_Line = V1_IntensityTime/CatalogTransitions;
+
+	double V1_CatalogTime_Line_R = CatalogTime_R/KaRestrictedLines;
+	double V1_SortTime_Line_R = V1_SortTime_R/KaRestrictedLines;
+	double V1_EnergyTime_Line_R = V1_EnergyTime_R/KaRestrictedLines;
+	double V1_IntensityTime_Line_R = V1_IntensityTime_R/KaRestrictedLines;
+
+	double V2_CatalogTime_Line = CatalogTime_V2/CatalogTransitions;
+	double V2_SortTime_Line = V2_SortTime/CatalogTransitions;
+	double V2_IntensityTime_Line = V2_IntensityTime/CatalogTransitions;
+	
+	double V2_CatalogTime_Line_R = CatalogTime_V2_R/KaRestrictedLines;
+	double V2_SortTime_Line_R = V2_SortTime_R/KaRestrictedLines;
+	double V2_IntensityTime_Line_R = V2_IntensityTime_R/KaRestrictedLines;
+	
+	
+	//Slope-Offset Calcs
+	double V1_Catalog_Time_m = (CatalogTime-CatalogTime_R)/(CatalogTransitions-KaRestrictedLines);
+	double V1_Catalog_Time_b = CatalogTime-(CatalogTransitions*V1_Catalog_Time_m);
+	
+	double V1_SortTime_m = (V1_SortTime-V1_SortTime_R)/(CatalogTransitions-KaRestrictedLines);
+	double V1_SortTime_b = V1_SortTime-(CatalogTransitions*V1_SortTime_m);
+	
+	double V1_EnergyTime_m = (V1_EnergyTime-V1_EnergyTime_R)/(CatalogTransitions-KaRestrictedLines);
+	double V1_EnergyTime_b = V1_EnergyTime-(CatalogTransitions*V1_EnergyTime_m);
+	
+	double V1_IntensityTime_m = (V1_IntensityTime-V1_IntensityTime_R)/(CatalogTransitions-KaRestrictedLines);
+	double V1_IntensityTime_b = V1_IntensityTime-(CatalogTransitions*V1_IntensityTime_m);
+	
+	
+	double V2_Catalog_Time_m = (CatalogTime_V2-CatalogTime_V2_R)/(CatalogTransitions-KaRestrictedLines);
+	double V2_Catalog_Time_b = CatalogTime_V2-(CatalogTransitions*V2_Catalog_Time_m);
+	
+	double V2_SortTime_m = (V2_SortTime-V2_SortTime_R)/(CatalogTransitions-KaRestrictedLines);
+	double V2_SortTime_b = V2_SortTime-(CatalogTransitions*V2_SortTime_m);
+	
+	double V2_IntensityTime_m = (V2_IntensityTime-V2_IntensityTime_R)/(CatalogTransitions-KaRestrictedLines);
+	double V2_IntensityTime_b = V2_IntensityTime-(CatalogTransitions*V2_IntensityTime_m);
+	
+	printf ("\n***** Timing Summary *****\n");
+	
+	printf ("The full catalog used %d transitions, the restricted catalog used: %d transitions, a ratio of %.3f\n",CatalogTransitions,KaRestrictedLines,CatalogRatio);
+	
+	//Raw Times
+	printf ("\n");
+	printf ("V1 Full Catalog time: %e\n",CatalogTime);
+	printf ("V1 Full Catalog+Sort time: %e\n",Catalog_Sort_Time);
+	printf ("V1 Full Catalog+Sort+Energies time: %e\n",Catalog_Sort_Energies_Time);
+	printf ("V1 Full Catalog+Sort+Energies+Intensities time: %e\n",Catalog_Sort_Energies_Intensities_Time);
+	
+	printf ("\n");
+	printf ("V1 restricted Catalog time: %e\n",CatalogTime_R);
+	printf ("V1 restricted Catalog+Sort time: %e\n",Catalog_Sort_Time_R);
+	printf ("V1 restricted Catalog+Sort+Energies time: %e\n",Catalog_Sort_Energies_Time_R);
+	printf ("V1 restricted Catalog+Sort+Energies+Intensities time: %e\n",Catalog_Sort_Energies_Intensities_Time_R);
+	
+	printf ("\n");
+	printf ("V2 Full Catalog+Energies time: %e\n",CatalogTime_V2);
+	printf ("V2 Full Catalog+Energies+Sort time: %e\n",Catalog_Sort_Time_V2);
+	printf ("V2 Full Catalog+Energies+Sort+Intensities time: %e\n",Catalog_Sort_Intensities_Time_V2);
+	
+	printf ("\n");
+	printf ("V2 restricted Catalog+Energies time: %e\n",CatalogTime_V2_R);
+	printf ("V2 restricted Catalog+Energies+Sort time: %e\n",Catalog_Sort_Time_V2_R);
+	printf ("V2 restricted Catalog+Energies+Sort+Intensities time: %e\n",Catalog_Sort_Intensities_Time_V2_R);
+	
+	//Times per action
+	printf("\n");
+	printf ("V1 time per full catalog frequency calculation: %e s\n",CatalogTime);
+	printf ("V1 time per full catalog sort: %e s\n",V1_SortTime);
+	printf ("V1 time per full catalog energy calculation: %e s\n",V1_EnergyTime);	
+	printf ("V1 time per full catalog intensity calculation: %e s\n",V1_IntensityTime);	
+	
+	printf ("\n");
+	printf ("V1 time per restricted catalog frequency calculation: %e s\n",CatalogTime_R);
+	printf ("V1 time per restricted catalog sort: %e s\n",V1_SortTime_R);
+	printf ("V1 time per restricted catalog energy calculation: %e s\n",V1_EnergyTime_R);	
+	printf ("V1 time per restricted catalog intensity calculation: %e s\n",V1_IntensityTime_R);	
+	
+	printf ("\n");
+	printf ("V2 time per full catalog frequency calculation: %e s\n",CatalogTime_V2);
+	printf ("V2 time per full catalog sort: %e s\n",V2_SortTime);
+	printf ("V2 time per full catalog intensity calculation: %e s\n",V2_IntensityTime);
+	
+	printf ("\n");
+	printf ("V2 time per restricted catalog frequency calculation: %e s\n",CatalogTime_V2_R);
+	printf ("V2 time per restricted catalog sort: %e s\n",V2_SortTime_R);
+	printf ("V2 time per restricted catalog intensity calclation: %e s\n",V2_IntensityTime_R);
+	
+	//Actions per line
+	printf("\n");
+	printf ("V1 time per full catalog frequency calculation per line: %e s\n",V1_CatalogTime_Line);
+	printf ("V1 time per full catalog sort per line: %e s\n",V1_SortTime_Line);
+	printf ("V1 time per full catalog energy calculation per line: %e s\n",V1_EnergyTime_Line);	
+	printf ("V1 time per full catalog intensity calculation per line: %e s\n",V1_IntensityTime_Line);
+	
+	printf("\n");
+	printf ("V1 time per restricted catalog frequency calculation per line: %e s\n",V1_CatalogTime_Line_R);
+	printf ("V1 time per restricted catalog sort per line: %e s\n",V1_SortTime_Line_R);
+	printf ("V1 time per restricted catalog energy calculation per line: %e s\n",V1_EnergyTime_Line_R);	
+	printf ("V1 time per restricted catalog intensity calculation per line: %e s\n",V1_IntensityTime_Line_R);
+	
+	printf("\n");
+	printf ("V2 time per full catalog frequency calculation per line: %e s\n",V2_CatalogTime_Line);
+	printf ("V2 time per full catalog sort per line: %e s\n",V2_SortTime_Line);	
+	printf ("V2 time per full catalog intensity calculation per line: %e s\n",V2_IntensityTime_Line);
+	
+	printf("\n");
+	printf ("V2 time per restricted catalog frequency calculation per line: %e s\n",V2_CatalogTime_Line_R);
+	printf ("V2 time per restricted catalog sort per line: %e s\n",V2_SortTime_Line_R);	
+	printf ("V2 time per restricted catalog intensity calculation per line: %e s\n",V2_IntensityTime_Line_R);
+	
+	//Slope-Intercept 
+	printf ("\n");
+	printf ("V1: Fixed time per catalog %e, Time per transition %e\n",V1_Catalog_Time_b,V1_Catalog_Time_m);
+	printf ("V1: Fixed time per sort %e, Time per transition %e\n",V1_SortTime_b,V1_SortTime_m);
+	printf ("V1: Fixed time per energy %e, Time per transition %e\n",V1_EnergyTime_b,V1_EnergyTime_m);
+	printf ("V1: Fixed time per intensity %e, Time per transition %e\n",V1_IntensityTime_b,V1_IntensityTime_m);
+	
+	printf ("\n");
+	printf ("V2: Fixed time per catalog %e, Time per transition %e\n",V2_Catalog_Time_b,V2_Catalog_Time_m);
+	printf ("V2: Fixed time per sort %e, Time per transition %e\n",V2_SortTime_b,V2_SortTime_m);
+	printf ("V2: Fixed time per intensity %e, Time per transition %e\n",V2_IntensityTime_b,V2_IntensityTime_m);
+	
+	
 	free(Timing);
 	return 1;
 Error:
@@ -1347,24 +2139,47 @@ int Accuracy_Test(void)
 {
 /*
 	Test Code - Accuracy test
-	The code below builds three different catalogs at the oblate, prolate, and asymmetric limits and saves them. 
+	The code below builds 12 different catalogs at the oblate, prolate, and asymmetric limits with Get_Catalog V1/2 with both distortion and purely rigid and saves them. 
 	Please note that the filenames are not dynamic and you should change them depending on the resolution of the solver used.
 	
 */
-double Constants[3];	
+double Kappa,Constants[3],Dipoles[3],DistortedConstants[4];	
+double *DJSlopes, **StrData;	//Storing the slopes for DJ corrections
+int i,CatalogTransitions,DictionaryLevels,LevelsCount;		//Number of transitions in the catalogs
+int *LevelList;
 struct ETauStruct ETStruct;
 struct Transition *BaseCatalog;	//Model catalog used to save time and simplify	
 struct Level	*BaseDict;						//The base catalog dictionary, translates from an index to J/Ka/Kc 
-int i,CatalogTransitions,DictionaryLevels;		//Number of transitions in the catalogs
 FILE *FileHandle;	
+
 	
+	//Initialize everything
 	if (!Initialize_Stuff(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog)) {
 		goto Error;
 	}
+	DJSlopes = NULL;
+	Load_DJ_File ("DJCoeffs.txt", &DJSlopes, 0);
+	StrData = NULL;
+	Load_Str_File ("Intensity_Full_DK3.int", &StrData, 0);
+	
+	Dipoles[0] = 1.0;
+	Dipoles[1] = 1.0;
+	Dipoles[2] = 1.0;
+	
+	
+	LevelsCount = Make_Default_Level_List (DictionaryLevels,&LevelList);
+	
+	
 	//Oblate Top
 	Constants[0] = 2000.0;
 	Constants[1] = 1990.0;
 	Constants[2] = 1000.0;
+	DistortedConstants[0] = Constants[0];
+	DistortedConstants[1] = Constants[1];
+	DistortedConstants[2] = Constants[2];
+	DistortedConstants[3] = 0.1;	//DJ in MHz
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	
 	Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
 					Constants, 			//Rotational constants for the calculation
 					CatalogTransitions,	//# of transitions in the catalog
@@ -1373,17 +2188,69 @@ FILE *FileHandle;
 					BaseDict
 	);
 	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
-	FileHandle = fopen("OblateCat_dK2.txt","w");
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+
+	
+	FileHandle = fopen("OblateCat_dK3.txt","w");
 	for (i=0;i<CatalogTransitions;i++) {
 		struct Transition TransitionToPrint = BaseCatalog[i];
-		fprintf (FileHandle,"%.12f %i %i %i  %i %i %i\n",TransitionToPrint.Frequency, BaseDict[TransitionToPrint.Upper].J,BaseDict[TransitionToPrint.Upper].Ka,BaseDict[TransitionToPrint.Upper].Kc,BaseDict[TransitionToPrint.Lower].J,BaseDict[TransitionToPrint.Lower].Ka,BaseDict[TransitionToPrint.Lower].Kc);
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
 	}
 	fclose(FileHandle);
+	printf ("Rigid Oblate catalog built\n");
+
+	Get_Catalog_DJ (	BaseCatalog, 		//Catalog to compute frequencies for
+						DistortedConstants, 			//Rotational constants for the calculation
+						CatalogTransitions,	//# of transitions in the catalog
+						0,					//Verbose
+						ETStruct,
+						BaseDict,
+						DJSlopes
+	);
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+
 	
+	FileHandle = fopen("OblateCat_dK3_DJ.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Distorted Oblate catalog built\n");
+	
+	
+	
+	///////////////////////////////////////
 	//Prolate Top
 	Constants[0] = 2000.0;
 	Constants[1] = 1010.0;
 	Constants[2] = 1000.0;
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	
+	DistortedConstants[0] = Constants[0];
+	DistortedConstants[1] = Constants[1];
+	DistortedConstants[2] = Constants[2];
+	DistortedConstants[3] = 0.1;	//DJ in MHz
+	
 	Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
 					Constants, 			//Rotational constants for the calculation
 					CatalogTransitions,	//# of transitions in the catalog
@@ -1392,17 +2259,67 @@ FILE *FileHandle;
 					BaseDict
 	);
 	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
-	FileHandle = fopen("ProlateCat_dK2.txt","w");
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("ProlateCat_dK3.txt","w");
 	for (i=0;i<CatalogTransitions;i++) {
 		struct Transition TransitionToPrint = BaseCatalog[i];
-		fprintf (FileHandle,"%.12f %i %i %i  %i %i %i\n",TransitionToPrint.Frequency, BaseDict[TransitionToPrint.Upper].J,BaseDict[TransitionToPrint.Upper].Ka,BaseDict[TransitionToPrint.Upper].Kc,BaseDict[TransitionToPrint.Lower].J,BaseDict[TransitionToPrint.Lower].Ka,BaseDict[TransitionToPrint.Lower].Kc);
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
 	}
 	fclose(FileHandle);
+	printf ("Rigid Prolate catalog built\n");
 
+	//Distorted Prolate Top
+	
+	Get_Catalog_DJ (	BaseCatalog, 		//Catalog to compute frequencies for
+						DistortedConstants, 			//Rotational constants for the calculation
+						CatalogTransitions,	//# of transitions in the catalog
+						0,					//Verbose
+						ETStruct,
+						BaseDict,
+						DJSlopes
+	);
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("ProlateCat_dK3_DJ.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Distorted Prolate catalog built\n");
+
+
+
+	///////////////////////////////////////
 	//Asymmetric Top
 	Constants[0] = 2000.0;
 	Constants[1] = 1510.0;
 	Constants[2] = 1000.0;
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	
+	DistortedConstants[0] = Constants[0];
+	DistortedConstants[1] = Constants[1];
+	DistortedConstants[2] = Constants[2];
+	DistortedConstants[3] = 0.1;	//DJ in MHz
+	
 	Get_Catalog (	BaseCatalog, 		//Catalog to compute frequencies for
 					Constants, 			//Rotational constants for the calculation
 					CatalogTransitions,	//# of transitions in the catalog
@@ -1411,18 +2328,362 @@ FILE *FileHandle;
 					BaseDict
 	);
 	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
-	FileHandle = fopen("AsymmetricCat_dK2.txt","w");
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	
+	FileHandle = fopen("AsymmetricCat_dK3_DJ.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Rigid Asymmetric catalog built\n");
+	
+	//Distorted Asymmetric Top
+	Get_Catalog_DJ (	BaseCatalog, 		//Catalog to compute frequencies for
+						DistortedConstants, 			//Rotational constants for the calculation
+						CatalogTransitions,	//# of transitions in the catalog
+						0,					//Verbose
+						ETStruct,
+						BaseDict,
+						DJSlopes
+	);
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("ProlateCat_dK3_DJ.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Distorted Asymmetric catalog built\n");
+	
+	//////////////Get_Catalog2 Tests
+
+	///////////////////////////////////////
+	//Oblate Top - Get_Catalog2
+	Constants[0] = 2000.0;
+	Constants[1] = 1990.0;
+	Constants[2] = 1000.0;
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	
+	DistortedConstants[0] = Constants[0];
+	DistortedConstants[1] = Constants[1];
+	DistortedConstants[2] = Constants[2];
+	DistortedConstants[3] = 0.1;	//DJ in MHz
+	
+	Get_Catalog2 (	Constants, 
+					ETStruct, 
+					BaseDict, 
+					LevelList, 
+					LevelsCount, 
+					BaseCatalog, 
+					CatalogTransitions,
+					0
+	);
+	
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("OblateCat_dK3_Get_Catalog2.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Rigid Oblate catalog V2 built\n");
+	
+	//Distorted Oblate Top
+	Get_Catalog2_DJ (	DistortedConstants, 
+						ETStruct, 
+						BaseDict, 
+						LevelList, 
+						LevelsCount, 
+						BaseCatalog, 
+						CatalogTransitions,
+						DJSlopes,
+						0
+	);
+	
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("OblateCat_dK3_Get_Catalog2_DJ.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Distorted Oblate catalog V2 built\n");
+	
+	///////////////////////////////////////
+	//Prolate Top - Get_Catalog2
+	Constants[0] = 2000.0;
+	Constants[1] = 1010.0;
+	Constants[2] = 1000.0;
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	
+	DistortedConstants[0] = Constants[0];
+	DistortedConstants[1] = Constants[1];
+	DistortedConstants[2] = Constants[2];
+	DistortedConstants[3] = 0.1;	//DJ in MHz
+	
+	Get_Catalog2 (	Constants, 
+					ETStruct, 
+					BaseDict, 
+					LevelList, 
+					LevelsCount, 
+					BaseCatalog, 
+					CatalogTransitions,
+					0
+	);
+	
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("ProlateCat_dK3_Get_Catalog2.txt","w");
 	for (i=0;i<CatalogTransitions;i++) {
 		struct Transition TransitionToPrint = BaseCatalog[i];
 		fprintf (FileHandle,"%.12f %i %i %i  %i %i %i\n",TransitionToPrint.Frequency, BaseDict[TransitionToPrint.Upper].J,BaseDict[TransitionToPrint.Upper].Ka,BaseDict[TransitionToPrint.Upper].Kc,BaseDict[TransitionToPrint.Lower].J,BaseDict[TransitionToPrint.Lower].Ka,BaseDict[TransitionToPrint.Lower].Kc);
 	}
 	fclose(FileHandle);
+	printf ("Rigid Oblate catalog V2 built\n");
+	
+	//Distorted Prolate Top
+	Get_Catalog2_DJ (	DistortedConstants, 
+						ETStruct, 
+						BaseDict, 
+						LevelList, 
+						LevelsCount, 
+						BaseCatalog, 
+						CatalogTransitions,
+						DJSlopes,
+						0
+	);
+	
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("ProlateCat_dK3_Get_Catalog2_DJ.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Distorted Prolate catalog V2 built\n");
+	
+	///////////////////////////////////////
+	//Asymmetric Top - Get_Catalog2
+	Constants[0] = 2000.0;
+	Constants[1] = 1510.0;
+	Constants[2] = 1000.0;
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	
+	DistortedConstants[0] = Constants[0];
+	DistortedConstants[1] = Constants[1];
+	DistortedConstants[2] = Constants[2];
+	DistortedConstants[3] = 0.1;	//DJ in MHz
+	
+	Get_Catalog2 (	Constants, 
+					ETStruct, 
+					BaseDict, 
+					LevelList, 
+					LevelsCount, 
+					BaseCatalog, 
+					CatalogTransitions,
+					0
+	);
+	
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("AsymmetricCat_dK3_Get_Catalog2.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Rigid Asymmetric catalog V2 built\n");
+	
+	//Distorted Asymmetric Top
+	Get_Catalog2_DJ (	DistortedConstants, 
+						ETStruct, 
+						BaseDict, 
+						LevelList, 
+						LevelsCount, 
+						BaseCatalog, 
+						CatalogTransitions,
+						DJSlopes,
+						0
+	);
+	
+	Sort_Catalog (BaseCatalog,CatalogTransitions,2,0);
+	Calculate_State_Energies (BaseDict, BaseCatalog, CatalogTransitions, DictionaryLevels,0);
+	Calculate_Intensities_Sij (BaseCatalog, CatalogTransitions, BaseDict, 300, Dipoles, StrData, Kappa, Constants, 0);
+	FileHandle = fopen("AsymmetricCat_dK3_Get_Catalog2_DJ.txt","w");
+	for (i=0;i<CatalogTransitions;i++) {
+		struct Transition TransitionToPrint = BaseCatalog[i];
+		fprintf (FileHandle,"%.12f %.4e %i %i %i  %i %i %i\n",	TransitionToPrint.Frequency,
+																TransitionToPrint.Intensity, 
+																BaseDict[TransitionToPrint.Upper].J,
+																BaseDict[TransitionToPrint.Upper].Ka,
+																BaseDict[TransitionToPrint.Upper].Kc,
+																BaseDict[TransitionToPrint.Lower].J,
+																BaseDict[TransitionToPrint.Lower].Ka,
+																BaseDict[TransitionToPrint.Lower].Kc
+															);
+	}
+	fclose(FileHandle);
+	printf ("Distorted Asymmetric catalog V2 built\n");
+	
+	free(DJSlopes);
 	return 1;
 	
 Error:
 	printf ("Error: Couldn't initialize the accuracy test\n");	
 	return 0;
 }
+
+/*
+
+void Str_Tester (void)
+{
+double Constants[3],Dipoles[3];
+//double ChiSqr;	//Temporarily Unused
+struct ETauStruct ETStruct;
+struct Transition *BaseCatalog,*JRestricted;	//Model catalog used to save time and simplify	
+struct Level	*BaseDict;						//The base catalog dictionary, translates from an index to J/Ka/Kc 
+int CatalogTransitions,DictionaryLevels;		//Number of transitions in the catalogs
+
+//int JRestrictedLines,KaRestrictedLines,CRestrictedLines, UseC;
+//struct Transition *JRestricted, *KaRestricted, *CRestricted, *CattoUse;
+
+int CatLines;
+struct Transition *CattoUse;
+
+Constants[0] = 3000.0;
+Constants[1] = 2000.0;
+Constants[2] = 1000.0;
+Dipoles[0] = 1.0;
+Dipoles[1] = 1.0;
+Dipoles[2] = 1.0;
+
+int i,StateSelect,JRestrictedLines;
+	
+//Str Scoring
+double **StrData,Sij,Kappa;
+
+
+//Kelvin File stuff
+double *KelvinLines;
+char ExperimentalFileName[300];
+int KelvinPoints;
+
+	
+	for (i=0;i<KelvinPoints;i++) printf ("%.4f\n",KelvinLines[i]);
+	
+	Initialize_Stuff_Local(&(ETStruct.ETVals),&CatalogTransitions,&DictionaryLevels,&(ETStruct.Delta),&(ETStruct.StatePoints),&BaseDict,&BaseCatalog);
+	for (i=0;i<CatalogTransitions;i++) BaseCatalog[i].Map = i;
+	Get_Catalog (		BaseCatalog, 		//Catalog to compute frequencies for
+						Constants, 			//Rotational constants for the calculation
+						CatalogTransitions,	//# of transitions in the catalog
+						0,					//Verbose
+						ETStruct,
+						BaseDict
+	);
+	StrData = NULL;
+	Load_Str_File ("Intensity_Full_DK3.int", &StrData, 0);
+	JRestrictedLines = Fill_Catalog_Restricted_J (BaseCatalog, &JRestricted, Constants, CatalogTransitions, 0, 10, 0, BaseDict);
+	
+	CattoUse = BaseCatalog;
+	CatLines = CatalogTransitions;
+	
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	Calculate_State_Energies_Local (BaseDict, CattoUse, CatLines, DictionaryLevels,0);
+	Calculate_Intensities_Local (CattoUse, CatLines, BaseDict, 2.0, Dipoles, StrData, Kappa, Constants,0);
+	for (i=0;i<JRestrictedLines;i++) {
+		if ((BaseDict[JRestricted[i].Upper].J == 7) || (BaseDict[JRestricted[i].Lower].J == 7)) {
+			if ((BaseDict[JRestricted[i].Upper].Ka == 1) || (BaseDict[JRestricted[i].Lower].Ka == 0)) {
+				printf ("%d %d ",i,JRestricted[i].Map); 
+				print_Transition (JRestricted[i], BaseDict);
+			}
+		}		
+	}
+	
+	
+	StateSelect = 214;
+	//199 = 101-000
+	//291 9745.967 4 0 4 -- 3 1 3
+	//1112 35000.000 6 6 0 -- 5 5 1
+	//46 0.000 7 1 7 -- 7 0 7
+	//442 16000.000 7 0 7 -- 6 0 6
+	//213 4000.000 1 1 1 -- 0 0 0
+	//443 16000.000 7 1 7 -- 6 0 6
+	
+	for (i=0;i<201;i++) {
+		Kappa = (double) (10*i-1000)/1001;
+		Sij = Get_Str (Kappa, JRestricted[StateSelect].Map, 2001, StrData);
+		printf ("Sij %f Kappa:%.2f\n",Sij,Kappa);
+	}
+	print_Transition(JRestricted[StateSelect],BaseDict);
+	printf ("%d\n", JRestricted[StateSelect].Map);
+// 	for (i=0;i<JRestrictedLines;i++) {
+// 		printf ("%d %d ",i,JRestricted[i].Map); 
+// 		print_Transition (JRestricted[i], BaseDict);
+// 	}
+	
+}
+
+*/
 
 void Test_SBFIT (void)
 {
@@ -1895,5 +3156,172 @@ int Match_Levels (int Match1, int Match2, struct Transition *MatchCatalog)
 		return 0;
 	}
 } 
+
+
+////////////////////////////////////
+/* Newly added faster Get_Catalog2 and it's related functions */
+
+int Fill_Catalog_Restricted_Ka2 (struct Transition *SourceCatalog, struct Transition **CatalogtoFill, double *Constants, int CatLines, int KaMin, int KaMax, int Verbose, struct Level *MyDictionary, int **Mask, int *MaskCount)
+{
+/*
+	Function to build a new Catalog with limited J for use with Get_Catalog2
+	The actual catalog (*Transition) object built is the same
+	The difference is that this also constructs a list of all the unique energy levels as it goes
+	The list is an array of integers that list the levels within the dictionary that are to be used
+	
+*/
+int i, CatLinesOut,*TempMask;     
+	*CatalogtoFill = malloc(CatLines*sizeof(struct Transition));
+	TempMask = malloc (2*CatLines*sizeof(int));
+	CatLinesOut = 0; 
+	for (i=0;i<CatLines;i++) {
+		if ((MyDictionary[(SourceCatalog)[i].Upper].Ka >= KaMin) && (MyDictionary[(SourceCatalog)[i].Upper].Ka <= KaMax)) {
+			(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i];
+			TempMask[CatLinesOut*2] = (SourceCatalog)[i].Upper;	//As a temporary measure
+			TempMask[CatLinesOut*2+1] = (SourceCatalog)[i].Lower;
+			
+			if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
+			if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
+			CatLinesOut++;
+		}
+	}
+	*MaskCount = 0;
+	qsort(TempMask, CatLinesOut*2, sizeof(int), Comparator_Int);	//Sort the line list so its always in order when its pulled in
+	*Mask = malloc (2*CatLinesOut*sizeof(int));
+	for (i=0;i<CatLinesOut*2-1;i++) {
+		if (TempMask[i] != TempMask[i+1]) {
+			(*Mask)[*MaskCount] = TempMask[i];
+			(*MaskCount)++;
+		}
+	}
+	*Mask = realloc(*Mask,*MaskCount*sizeof(int));
+	*CatalogtoFill = realloc (*CatalogtoFill,CatLinesOut*sizeof(struct Transition));   
+	free (TempMask);
+	return CatLinesOut;
+}
+
+int Fill_Catalog_Restricted_J2 (struct Transition *SourceCatalog, struct Transition **CatalogtoFill, double *Constants, int CatLines, int JMin, int JMax, int Verbose, struct Level *MyDictionary, int **Mask, int *MaskCount)
+{
+/*
+	Function to build a new Catalog with limited J for use with Get_Catalog2
+	The actual catalog (*Transition) object built is the same
+	The difference is that this also constructs a list of all the unique energy levels as it goes
+	The list is an array of integers that list the levels within the dictionary that are to be used
+	
+*/
+
+int i, CatLinesOut,*TempMask;     
+	*CatalogtoFill = malloc(CatLines*sizeof(struct Transition));
+	TempMask = malloc (2*CatLines*sizeof(int));
+	CatLinesOut = 0; 
+	
+	for (i=0;i<CatLines;i++) {
+		if ((MyDictionary[(SourceCatalog)[i].Upper].J >= JMin) && (MyDictionary[(SourceCatalog)[i].Upper].J <= JMax)) {
+			(*CatalogtoFill)[CatLinesOut] = (SourceCatalog)[i];
+			TempMask[CatLinesOut*2] = (SourceCatalog)[i].Upper;	//As a temporary measure
+			TempMask[CatLinesOut*2+1] = (SourceCatalog)[i].Lower;
+			
+			if (Verbose) printf ("%d ",(*CatalogtoFill)[CatLinesOut].Type);				
+			if (Verbose) print_Transition ((*CatalogtoFill)[CatLinesOut],MyDictionary);
+			CatLinesOut++;
+		}
+	}
+	*MaskCount = 0;
+	qsort(TempMask, CatLinesOut*2, sizeof(int), Comparator_Int);	//Sort the line list so its always in order when its pulled in
+	*Mask = malloc (2*CatLinesOut*sizeof(int));
+	for (i=0;i<CatLinesOut*2-1;i++) {
+		if (TempMask[i] != TempMask[i+1]) {
+			(*Mask)[*MaskCount] = TempMask[i];
+			(*MaskCount)++;
+		}
+	}
+	*Mask = realloc(*Mask,*MaskCount*sizeof(int));
+	*CatalogtoFill = realloc (*CatalogtoFill,CatLinesOut*sizeof(struct Transition));   
+	free (TempMask);
+	return CatLinesOut;
+}
+
+int Get_Catalog2 (double Constants[3], struct ETauStruct ETStruct, struct Level *MyDictionary, int *LevelList, int LevelListCount, struct Transition *CatalogtoFill, int CatLines, int Verbose)
+{
+/*
+
+Fills a catalog using the new faster procedure
+Essentially this works by just calculating the energy levels in the catalog first, then differencing them after
+This avoids the old version's redundant calculations of energy levels that are shared by multiple transitions in the catalog
+The trick to this is you need a list of the levels required. This is done elsewhere to avoid redoing that math each time
+The other subtlety is that it first runs through and updates the energies in the program's dictionary/list of energy levels. Then it pulls differences from those values into frequencies for the catalog
+
+*/
+
+double Kappa;
+int i;
+	
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	//Calculate the energies of all the levels in the list
+	/*
+	Warning - You must pass a list of levels that includes all the levels your catalog or the frequencies returned will be wrong
+	*/
+	for (i=0;i<LevelListCount;i++) {
+		(MyDictionary)[LevelList[i]].Energy = Rigid_Rotor(Constants[0],Constants[2],(MyDictionary)[LevelList[i]].J,(MyDictionary)[LevelList[i]].Index,Kappa,ETStruct);
+		
+	}
+	for (i=0;i<CatLines;i++) {
+		(CatalogtoFill)[i].Frequency = fabs((MyDictionary)[(CatalogtoFill)[i].Upper].Energy-(MyDictionary)[(CatalogtoFill)[i].Lower].Energy);
+		if (Verbose) printf ("%d %d ",i,(CatalogtoFill)[i].Type);		
+		if (Verbose) print_Transition ((CatalogtoFill)[i],MyDictionary);
+	}
+	return 1;
+}
+
+int Get_Catalog2_DJ (double Constants[4], struct ETauStruct ETStruct, struct Level *MyDictionary, int *LevelList, int LevelListCount, struct Transition *CatalogtoFill, int CatLines, double *DJSlopes, int Verbose)
+{
+/*
+
+Fills a catalog using the new faster procedure
+Essentially this works by just calculating the energy levels in the catalog first, then differencing them after
+This avoids the old version's redundant calculations of energy levels that are shared by multiple transitions in the catalog
+The trick to this is you need a list of the levels required. This is done elsewhere to avoid redoing that math each time
+The other subtlety is that it first runs through and updates the energies in the program's dictionary/list of energy levels. Then it pulls differences from those values into frequencies for the catalog
+
+*/
+
+double Kappa;
+int i;
+	
+	Kappa = Get_Kappa (Constants[0],Constants[1],Constants[2]);
+	//Calculate the energies of all the levels in the list
+	/*
+	Warning - You must pass a list of levels that includes all the levels your catalog or the frequencies returned will be wrong
+	*/
+	for (i=0;i<LevelListCount;i++) {
+		(MyDictionary)[LevelList[i]].Energy = Rigid_Rotor(Constants[0],Constants[2],(MyDictionary)[LevelList[i]].J,(MyDictionary)[LevelList[i]].Index,Kappa,ETStruct);
+		(MyDictionary)[LevelList[i]].Energy += DJ_Shift (LevelList[i], Constants[3], DJSlopes);
+	}
+	for (i=0;i<CatLines;i++) {
+		(CatalogtoFill)[i].Frequency = fabs((MyDictionary)[(CatalogtoFill)[i].Upper].Energy-(MyDictionary)[(CatalogtoFill)[i].Lower].Energy);
+		if (Verbose) printf ("%d %d ",i,(CatalogtoFill)[i].Type);		
+		if (Verbose) print_Transition ((CatalogtoFill)[i],MyDictionary);
+	}
+	return 1;
+}
+
+int Make_Default_Level_List (int DictionaryLevels, int **LevelList)
+{
+//Very simple function to make a list of all the levels found in a dictionary
+//It's literally just an array of 0,1,2,...N-1 where N is the number of levels in the program's dictionary, this ensures we calculate every single energy level
+int i;	
+	*LevelList = malloc(DictionaryLevels*sizeof(int));
+	if (LevelList == NULL) return -1;
+	for (i=0;i<DictionaryLevels;i++) {
+		(*LevelList)[i] = i;
+	} 
+	return DictionaryLevels;
+
+}
+
+
+
+
+
 
 #endif /* __FITTER_H__ */

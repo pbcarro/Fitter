@@ -73,6 +73,7 @@ Load_Base_Catalog = FitterLib.Load_Base_Catalog
 Get_Catalog = FitterLib.Get_Catalog
 Fit_Triples_Bundle =  FitterLib.Fit_Triples_Bundle
 
+
 #Note these special _Alloc versions need to be called for python routines for the first initialization
 #This is due to an issue getting C to recognize the ctypes null pointer. I still dont know why it isn't working
 #If calling the initialize function after the first call, use the normal version without _Alloc. 
@@ -91,7 +92,12 @@ Fill_Catalog_Restricted_J = FitterLib.Fill_Catalog_Restricted_J
 Fill_Catalog_Restricted_Ka = FitterLib.Fill_Catalog_Restricted_Ka
 SBFIT = FitterLib.SBFIT
 Timing_Test_Triples = FitterLib.Timing_Test_Triples
-
+Fill_Catalog_Restricted_J2 = FitterLib.Fill_Catalog_Restricted_J2
+Get_Catalog2 = FitterLib.Get_Catalog2
+Make_Default_Level_List = FitterLib.Make_Default_Level_List
+Get_Catalog2_DJ = FitterLib.Get_Catalog2_DJ
+Get_Catalog_DJ = FitterLib.Get_Catalog_DJ
+Load_DJ_File = FitterLib.Load_DJ_File
 
 ####Define a scoring function in python
 ScoringFunction = CFUNCTYPE(c_double, POINTER(Transition), c_void_p)
@@ -102,6 +108,7 @@ ETFileName = create_string_buffer(b"etau.dat")
 DictionaryFileName = create_string_buffer(b"base_cat_dict.txt")
 CatalogFileName = create_string_buffer(b"base_cat.txt")
 ExperimentalFileName = create_string_buffer(b"../tests/ft2494.txt")
+DJFileName = create_string_buffer(b"DJCoeffs.txt")
 
 ###Create instances of the C structures
 MyLevels = POINTER(Level)()
@@ -116,6 +123,8 @@ MyTriple = Triple()
 TestType = Transition*3
 FitTransitions = TestType()
 ConstantsType = c_double * 3
+ConstantsType_DJ = c_double * 4
+
 
 FittingFrequencyType = c_double*10
 TestWorkspace = POINTER(GSL_multifit_nlinear_workspace)()
@@ -139,7 +148,11 @@ SBFITResults = POINTER(c_double)()
 Statecount = c_int(0)
 Verbose = c_int(0)	#0 for a non verbose program
 
+#####################################
 ###Basic load of program files
+###These are the foundational set of files needed by essentially all functions in the code
+###
+
 CatalogStateCount = Load_Base_Catalog (		CatalogFileName,
 											byref(MyCatalog),
 											Verbose
@@ -156,150 +169,261 @@ Load_ETau_File2 (	ETFileName,
 				)
 
 
+#####################################
+###Flags for what examples to run
+CatalogandSort = 0		#Basic example of calculating frequencies and then sorting them
+EnergyCalculation = 0	#Calculate the energies of a catalog
+FitConstants = 0		#Example of fitting constants to lines, and using custom catalogs for extra speed
+TriplesExample = 0	#Example of running a triples fit
+GetCatalog_V2 = 0
+Distort_DJ = 1
+
+
 
 #####################################
 ###Example catalog calculation and sort
-Verbose.value = 1
-Constants = ConstantsType (3000.0,2000.0,1000.0)
-Get_Catalog (	MyCatalog, 		
-				Constants, 			
-				CatalogStateCount,	
-				Verbose,					
-				MyET,
-				MyLevels
-)
-
-Sort_Catalog (	MyCatalog,
-				CatalogStateCount,
-				c_int(2),		#Sort by frequency
-				c_int(0)		#Use insertion sort to do it
-			)
-
+if (CatalogandSort):
+	Verbose.value = 1
+	Constants = ConstantsType (3000.0,2000.0,1000.0)
+	Get_Catalog (	MyCatalog, 		
+					Constants, 			
+					CatalogStateCount,	
+					Verbose,					
+					MyET,
+					MyLevels
+	)
+	
+	Sort_Catalog (	MyCatalog,
+					CatalogStateCount,
+					c_int(2),		#Sort by frequency
+					c_int(0)		#Use insertion sort to do it
+				)
+	
 
 #####################################
 ###Example catalog energy calculation
-Verbose.value = 0
-Calculate_State_Energies (MyLevels, MyCatalog, CatalogStateCount, CatalogLevelCount, Verbose)
+if (EnergyCalculation):
+	Verbose.value = 0
+	Constants = ConstantsType (3000.0,2000.0,1000.0)
+	#An un initialized catalog will have random energy values, an energy calculation requires a frequency calculation first
+	#Consider using Get_Catalog V2 (example below) instead, it's faster and doesn't require separate energy calculations.
+	#This is included for legacy code and just general interest.
+	Get_Catalog (	MyCatalog, 		
+					Constants, 			
+					CatalogStateCount,	
+					Verbose,					
+					MyET,
+					MyLevels
+	)
+	Calculate_State_Energies (MyLevels, MyCatalog, CatalogStateCount, CatalogLevelCount, Verbose)
 
 
 #####################################
 ###Example fit of constants
-RealConstants = ConstantsType (3333.0,2222.0,1111.0)
-GuessConstants = ConstantsType (3000.0,2000.0,1000.0)
-SBFITResults =  ConstantsType(1.0,2.0,3.0)
-Get_Catalog (	MyCatalog, 		
-				RealConstants, 			
-				CatalogStateCount,	
-				Verbose,					
-				MyET,
-				MyLevels
-)
+###This also demonstrates how to build/use trimmed catalogs
+###In general if you know you dont need transitions (e.g. high J/Ka lines) you can gain considerable speed by dropping them
 
-MyOptBundle.ETGSL = MyET
-MyOptBundle.MyDictionary = MyLevels
-MyOptBundle.TransitionCount = 10
-Initialize_SBFIT (byref(MyGSLBundle),byref(MyOptBundle))
-FittingFrequencies = FittingFrequencyType()
-
-JRestrictedLines = Fill_Catalog_Restricted_J (	MyCatalog,
-												byref(MyCatalog_JRestricted),
-												RealConstants,
-												CatalogStateCount,
-												0,	#JMin
-												10,	#JMax
-												Verbose,	
-												MyLevels
-											)
-#This takes the J restricted catalog as an input and further reduces its size
-KaRestrictedLines = Fill_Catalog_Restricted_Ka (MyCatalog_JRestricted,
-												byref(MyCatalog_KaRestricted),
-												RealConstants,
-												JRestrictedLines,
-												0,	#KaMin
-												7,	#KaMax
-												Verbose,	
-												MyLevels
-											)
-print ("Initial Catalog Size: %d. JRestricted Catalog Size: %d. Ka Restricted Catalog Size: %d" % (CatalogStateCount,JRestrictedLines,KaRestrictedLines))
-i = 0
-Count = 0
-while ((i<KaRestrictedLines) and (Count < 10)): 	#if (MyCatalog_KaRestricted[i].Frequency > 6000.0):
-	if ((MyCatalog_KaRestricted[i].Frequency > 6000.0) and (MyCatalog_KaRestricted[i].Frequency < 18000.0)):
-		FittingFrequencies[Count] = MyCatalog_KaRestricted[i].Frequency
-		print ("Adding line at %f to fitting frequencies" % FittingFrequencies[Count])
-		MyOptBundle.TransitionsGSL[Count] = MyCatalog_KaRestricted[i]
-		Count +=1
-	i+=1
-
-
-SBFIT (	GuessConstants,
-		byref(ChiSqr),
-		byref(MyGSLBundle),
-		MyOptBundle,
-		FittingFrequencies,
-		SBFITResults
-		
-		)
-
-print ("===Fit Complete===")
-print ("Input Constants: A: %f B: %f C: %f" % (RealConstants[0],RealConstants[1],RealConstants[2]))
-print ("Guess Constants: A: %f B: %f C: %f" % (GuessConstants[0],GuessConstants[1],GuessConstants[2]))
-print ("Fit Constants: A: %f B: %f C: %f" % (SBFITResults[0],SBFITResults[1],SBFITResults[2]))
-print ("Chi Squared: %f" % ChiSqr.value)
+if (FitConstants):
+	RealConstants = ConstantsType (3333.0,2222.0,1111.0)
+	GuessConstants = ConstantsType (3000.0,2000.0,1000.0)
+	SBFITResults =  ConstantsType(1.0,2.0,3.0)
+	Get_Catalog (	MyCatalog, 		
+					RealConstants, 			
+					CatalogStateCount,	
+					Verbose,					
+					MyET,
+					MyLevels
+	)
+	
+	MyOptBundle.ETGSL = MyET
+	MyOptBundle.MyDictionary = MyLevels
+	MyOptBundle.TransitionCount = 10
+	Initialize_SBFIT (byref(MyGSLBundle),byref(MyOptBundle))
+	FittingFrequencies = FittingFrequencyType()
+	
+	JRestrictedLines = Fill_Catalog_Restricted_J (	MyCatalog,
+													byref(MyCatalog_JRestricted),
+													RealConstants,
+													CatalogStateCount,
+													0,	#JMin
+													10,	#JMax
+													Verbose,	
+													MyLevels
+												)
+	#This takes the J restricted catalog as an input and further reduces its size
+	KaRestrictedLines = Fill_Catalog_Restricted_Ka (MyCatalog_JRestricted,
+													byref(MyCatalog_KaRestricted),
+													RealConstants,
+													JRestrictedLines,
+													0,	#KaMin
+													7,	#KaMax
+													Verbose,	
+													MyLevels
+												)
+	print ("Initial Catalog Size: %d. JRestricted Catalog Size: %d. Ka Restricted Catalog Size: %d" % (CatalogStateCount,JRestrictedLines,KaRestrictedLines))
+	i = 0
+	Count = 0
+	while ((i<KaRestrictedLines) and (Count < 10)): 	#if (MyCatalog_KaRestricted[i].Frequency > 6000.0):
+		if ((MyCatalog_KaRestricted[i].Frequency > 6000.0) and (MyCatalog_KaRestricted[i].Frequency < 18000.0)):
+			FittingFrequencies[Count] = MyCatalog_KaRestricted[i].Frequency
+			print ("Adding line at %f to fitting frequencies" % FittingFrequencies[Count])
+			MyOptBundle.TransitionsGSL[Count] = MyCatalog_KaRestricted[i]
+			Count +=1
+		i+=1
+	
+	
+	SBFIT (	GuessConstants,
+			byref(ChiSqr),
+			byref(MyGSLBundle),
+			MyOptBundle,
+			FittingFrequencies,
+			SBFITResults
+			
+			)
+	
+	print ("===Fit Complete===")
+	print ("Input Constants: A: %f B: %f C: %f" % (RealConstants[0],RealConstants[1],RealConstants[2]))
+	print ("Guess Constants: A: %f B: %f C: %f" % (GuessConstants[0],GuessConstants[1],GuessConstants[2]))
+	print ("Fit Constants: A: %f B: %f C: %f" % (SBFITResults[0],SBFITResults[1],SBFITResults[2]))
+	print ("Chi Squared: %f" % ChiSqr.value)
 
 
 #####################################
 ###Example Triples fit
-Verbose.value = 1
-ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
-										byref(ExpX),
-										byref(ExpY),
-										Verbose
-									)
-
-MyOptBundle.ETGSL = MyET
-MyOptBundle.MyDictionary = MyLevels
-MyOptBundle.TransitionCount = 3
-
-#Picking three random trasitions for a demo
-MyTriple.TransitionList[0] = MyCatalog[400]
-MyTriple.TransitionList[1] = MyCatalog[475]
-MyTriple.TransitionList[2] = MyCatalog[450]
-
-#Setting the 
-FitTransitions[0] = MyTriple.TransitionList[0]
-FitTransitions[1] = MyTriple.TransitionList[1]
-FitTransitions[2] = MyTriple.TransitionList[2]
-
-
-LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints,Verbose)
-Find_Triples (byref(MyTriple),LineList,Window,LineCount,Verbose)
-Initialize_Triples_Fitter (byref(MyGSLBundle),byref(MyOptBundle)) 
-MyOptBundle.TransitionsGSL = FitTransitions
-
-# ##Checking objects are set correctly going into the triples fit
-# # print ("%f %f %f" %(Constants[0], Constants[1], Constants[2]))	#Constants correctly passed to C
-# #print ("%f %d" % (MyOptBundle.ETGSL.Delta,MyOptBundle.ETGSL.StatePoints))
-# # print ("%d %d %d" % (MyOptBundle.MyDictionary[400].J,MyOptBundle.MyDictionary[500].Ka,MyOptBundle.MyDictionary[450].Kc))
-# # print ("%d" % (MyOptBundle.TransitionsGSL[2].Upper))
-# # 
-# # print ("%d %d %d" % (MyTriple.TriplesCount[0],MyTriple.TriplesCount[1],MyTriple.TriplesCount[2]))
-# # print ("%f %f %f" % (MyTriple.TriplesList[10],MyTriple.TriplesList[100],MyTriple.TriplesList[67]))
-# 
-# # print (CatalogStateCount) #CatalogStateCount
-# 
-Constants = ConstantsType (5002.0,3004.0,1998.0)
-Fit_Triples_Bundle	(			MyTriple,
- 								Constants,
- 								byref(FitResults),
- 								byref(MyCatalog),
- 								CatalogStateCount,
- 								byref(MyGSLBundle),
- 								MyOptBundle,
- 								CurrentScoringFunction,
- 								0
-					)
-print ("First fit: A: %f B: %f C: %f" % (FitResults[0],FitResults[1],FitResults[2])) 					
+if (TriplesExample):
+	Verbose.value = 1
+	ExperimentalPoints = Load_Exp_File (	ExperimentalFileName,
+											byref(ExpX),
+											byref(ExpY),
+											Verbose
+										)
+	
+	MyOptBundle.ETGSL = MyET
+	MyOptBundle.MyDictionary = MyLevels
+	MyOptBundle.TransitionCount = 3
+	
+	#Picking three random trasitions for a demo
+	MyTriple.TransitionList[0] = MyCatalog[400]
+	MyTriple.TransitionList[1] = MyCatalog[475]
+	MyTriple.TransitionList[2] = MyCatalog[450]
+	
+	#Setting the 
+	FitTransitions[0] = MyTriple.TransitionList[0]
+	FitTransitions[1] = MyTriple.TransitionList[1]
+	FitTransitions[2] = MyTriple.TransitionList[2]
+	
+	
+	LineCount = Peak_Find (byref(LineList), YMax,YMin,ExpX,ExpY,ExperimentalPoints,Verbose)
+	Find_Triples (byref(MyTriple),LineList,Window,LineCount,Verbose)
+	Initialize_Triples_Fitter (byref(MyGSLBundle),byref(MyOptBundle)) 
+	MyOptBundle.TransitionsGSL = FitTransitions
+	
+	Constants = ConstantsType (5002.0,3004.0,1998.0)
+	Fit_Triples_Bundle	(			MyTriple,
+	 								Constants,
+	 								byref(FitResults),
+	 								byref(MyCatalog),
+	 								CatalogStateCount,
+	 								byref(MyGSLBundle),
+	 								MyOptBundle,
+	 								CurrentScoringFunction,
+	 								0
+						)
+	print ("First fit: A: %f B: %f C: %f" % (FitResults[0],FitResults[1],FitResults[2])) 					
+						
+	#diditwork = Timing_Test_Triples()								
 					
-#diditwork = Timing_Test_Triples()								
 					
+#####################################
+###Example using Get_Catalog_V2.  
+###This version using the same structures in and out to hold results, but uses a different method for calculating the frequencies
+###This also results in energies automatically being calculated
+###In testing this is typically ~4x faster than the V1 and it is generally recommended that it is used.
+###The only caveat here is that the function requires a list of the energy levels that need to be calculated, failure to correctly supply this will cause inaccurate results.
+###The list should be given as a 1D int array, with the values in the list being the indices of the levels in the catalog's base dictionary.
+###C examples can be found in the Timing_Test function
+
+if (GetCatalog_V2):
+	
+	print ("Running the Get_Catalog V2 Example:")
+	
+	Constants = ConstantsType (5002.0,3004.0,1998.0)
+	JDictionaryCount = c_int(0)		#Integer set to 0
+	LevelList = POINTER(c_int)()	#Uninitialized pointer to int
+		
+	###If you want to use the full catalog, you can call this. Alternatively you can just make an int array of the same length as the dictionary and fill it with 0,1,2,...N-1 
+	#LevelsCount = Make_Default_Level_List (CatalogLevelCount,byref(LevelList))
+
+	JRestrictedLines = Fill_Catalog_Restricted_J2 (	MyCatalog, 						#Input Catalog
+													byref(MyCatalog_JRestricted), 	#Output Catalog
+													Constants, 						#Constants for the calculation
+													CatalogStateCount, 				#Number of transitions in the catalog
+													0, 								#J Min
+													10, 							#J Max
+													0, 								#Verbose Flag
+													MyLevels, 						#Catalog Dictionary
+													byref(LevelList), 					#List of energy levels in the catalog - see above for more detail
+													byref(JDictionaryCount)						#Number of energy levels in LevelList
+												);
+	
+
+	Get_Catalog2 (			Constants, 			#Input Constants
+							MyET, 				#E_tau structure
+							MyLevels, 			#Catalog Dictionary
+							LevelList, 			#List of levels 
+							JDictionaryCount,	#Length of LevelList 
+							MyCatalog_JRestricted, 		#Catalog to use
+							JRestrictedLines,	#Number of transitions in the catalog
+							1					#Verbose
+			);
+
+#####################################
+###Example using Get_Catalog_V2.  
+###
+###
+### 
+###
+###
+###
+
+if (Distort_DJ):
+	
+	print ("Running the DJ Example:")
+	
+	Constants = ConstantsType_DJ (5002.0,3004.0,1998.0,0.001)
+	JDictionaryCount = c_int(0)		#Integer set to 0
+	LevelList = POINTER(c_int)()	#Uninitialized pointer to int
+	DJSlopes = POINTER(c_double)()
+	
+	Test = Load_DJ_File (DJFileName,byref(DJSlopes),1)
+	
+		
+	###If you want to use the full catalog, you can call this. Alternatively you can just make an int array of the same length as the dictionary and fill it with 0,1,2,...N-1 
+	#LevelsCount = Make_Default_Level_List (CatalogLevelCount,byref(LevelList))
+
+	JRestrictedLines = Fill_Catalog_Restricted_J2 (	MyCatalog, 						#Input Catalog
+													byref(MyCatalog_JRestricted), 	#Output Catalog
+													Constants, 						#Constants for the calculation
+													CatalogStateCount, 				#Number of transitions in the catalog
+													0, 								#J Min
+													10, 							#J Max
+													0, 								#Verbose Flag
+													MyLevels, 						#Catalog Dictionary
+													byref(LevelList), 					#List of energy levels in the catalog - see above for more detail
+													byref(JDictionaryCount)						#Number of energy levels in LevelList
+												);
+	
+
+	Get_Catalog2_DJ (			Constants, 			#Input Constants
+								MyET, 				#E_tau structure
+								MyLevels, 			#Catalog Dictionary
+								LevelList, 			#List of levels 
+								JDictionaryCount,	#Length of LevelList 
+								MyCatalog_JRestricted, 		#Catalog to use
+								JRestrictedLines,	#Number of transitions in the catalog
+								0,					#Verbose
+								DJSlopes
+			)
+
+
+			
